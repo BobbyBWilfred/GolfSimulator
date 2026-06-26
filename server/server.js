@@ -1,17 +1,25 @@
-
-const path = require("path");
-app.use(express.static(path.join(__dirname, "..")));
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "..", "index.html"));
-});
 require('dotenv').config();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const path = require('path');
+
+const app = express();
+
+app.use(cors());
+app.use(express.json({ limit: '5mb' }));
+
+// Serve the frontend files from the repository root
+app.use(express.static(path.join(__dirname, "..")));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "..", "index.html"));
+});
 
 const PORT = process.env.PORT || 4000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tee_sheet_tour';
-
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/tee_sheet_tour";
 
 const saveSchema = new mongoose.Schema(
   {
@@ -21,16 +29,7 @@ const saveSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const Save = mongoose.model('Save', saveSchema);
-
-const app = express();
-app.use(cors()); 
-app.use(express.json({ limit: '5mb' })); 
-
-/* ---------------------------------------------------------------- */
-/* Routes                                                            */
-/* ---------------------------------------------------------------- */
-
+const Save = mongoose.model("Save", saveSchema);
 app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState; 
   res.json({ ok: true, db: dbState === 1 ? 'connected' : 'not connected' });
