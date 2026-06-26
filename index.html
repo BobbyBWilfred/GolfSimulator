@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tee Sheet — Your Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --turf-900:#16241c;--turf-800:#1b3a2f;--turf-700:#234a3a;--turf-600:#3f7a4d;--turf-500:#5b9466;
+  --sand-300:#d9c89a;--sand-200:#e9dfc2;--paper-100:#f3f0e6;--paper-50:#faf8f2;
+  --ink-900:#16201a;--ink-700:#3a463d;--ink-500:#6b7868;
+  --flag-red:#a8362a;--flag-red-dim:#c97167;--board-amber:#d9a13b;
+  --line:#cdc4a8;--line-dark:#3a4f41;--board-black:#10180f;
+  --shadow-soft:0 1px 2px rgba(16,24,15,0.08),0 8px 24px rgba(16,24,15,0.08);
+  --radius-card:4px;
+}
+*{box-sizing:border-box;}html,body{margin:0;padding:0;}
+body{background:var(--paper-100);background-image:radial-gradient(ellipse at top left,rgba(63,122,77,0.08),transparent 55%),radial-gradient(ellipse at bottom right,rgba(168,54,42,0.04),transparent 50%);color:var(--ink-900);font-family:'Inter',sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased;}
+@media(prefers-reduced-motion:reduce){*{animation-duration:0.001ms!important;transition-duration:0.001ms!important;}}
+@media(max-width:880px){.topbar{flex-wrap:wrap;gap:10px;padding:12px 16px;}.nav-tabs{order:3;width:100%;overflow-x:auto;}.topbar-right{order:2;}main{padding:16px;}.play-grid-2col{grid-template-columns:1fr!important;}}
+@media(max-width:520px){.brand-text h1{font-size:16px;}.season-pill{display:none;}}
+h1,h2,h3,h4{font-family:'Oswald',sans-serif;margin:0;letter-spacing:0.01em;}
+.num{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-variant-numeric:tabular-nums;}
+a{color:inherit;}button{font-family:inherit;cursor:pointer;}
+::selection{background:var(--board-amber);color:var(--board-black);}
+.scrollbar-thin::-webkit-scrollbar{width:8px;height:8px;}.scrollbar-thin::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+#app{min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:linear-gradient(180deg,var(--turf-800),var(--turf-900));color:var(--paper-50);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 0 rgba(0,0,0,0.15),var(--shadow-soft);position:sticky;top:0;z-index:50;border-bottom:3px solid var(--board-amber);}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand-mark{width:36px;height:36px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0 6%,transparent 7%),radial-gradient(circle at 60% 55%,#fff 0 5%,transparent 6%),radial-gradient(circle at 45% 70%,#fff 0 5%,transparent 6%),radial-gradient(circle at 70% 30%,#fff 0 4%,transparent 5%),var(--sand-200);border:2px solid var(--paper-50);flex-shrink:0;}
+.brand-text h1{font-size:19px;color:var(--paper-50);text-transform:uppercase;letter-spacing:0.06em;}
+.brand-text .sub{font-size:11px;color:var(--sand-300);letter-spacing:0.12em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;}
+.season-pill{font-family:'Barlow Condensed',sans-serif;font-weight:700;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);padding:6px 14px;border-radius:20px;font-size:13px;letter-spacing:0.04em;color:var(--sand-200);}
+.nav-tabs{display:flex;gap:4px;}
+.nav-tab{background:none;border:none;color:var(--sand-200);padding:8px 16px;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:600;border-radius:3px 3px 0 0;opacity:0.65;border-bottom:2px solid transparent;transition:opacity .15s,background .15s;}
+.nav-tab:hover{opacity:0.9;background:rgba(255,255,255,0.06);}
+.nav-tab.active{opacity:1;color:#fff;border-bottom-color:var(--board-amber);}
+.topbar-right{display:flex;align-items:center;gap:14px;}
+.restart-btn{background:var(--flag-red);color:#fff;border:none;padding:8px 14px;border-radius:3px;font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;box-shadow:0 1px 0 rgba(0,0,0,0.3);transition:filter .15s,transform .1s;}
+.restart-btn:hover{filter:brightness(1.12);}.restart-btn:active{transform:translateY(1px);}
+main{flex:1;padding:28px;max-width:1380px;margin:0 auto;width:100%;}
+.view{display:none;}.view.active{display:block;animation:fadein .25s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--line-dark);flex-wrap:wrap;gap:10px;}
+.section-head h2{font-size:24px;color:var(--turf-900);text-transform:uppercase;letter-spacing:0.02em;}
+.section-head .eyebrow{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:0.16em;text-transform:uppercase;color:var(--turf-600);font-weight:700;display:block;margin-bottom:2px;}
+.btn{border:1px solid var(--turf-800);background:var(--turf-800);color:#fff;padding:9px 16px;border-radius:3px;font-size:13px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;transition:transform .1s,filter .15s;}
+.btn:hover{filter:brightness(1.15);}.btn:active{transform:translateY(1px);}
+.btn.ghost{background:transparent;color:var(--turf-800);}.btn.ghost:hover{background:rgba(27,58,47,0.06);}
+.btn.amber{background:var(--board-amber);border-color:var(--board-amber);color:var(--board-black);}
+.btn.danger{background:var(--flag-red);border-color:var(--flag-red);}
+.btn:disabled{opacity:0.4;cursor:not-allowed;filter:none!important;}
+.btn-sm{padding:5px 10px;font-size:11px;}
+.card{background:var(--paper-50);border:1px solid var(--line);border-radius:var(--radius-card);box-shadow:var(--shadow-soft);}
+.empty-state{border:1px dashed var(--line-dark);border-radius:4px;padding:40px 24px;text-align:center;color:var(--ink-500);background:rgba(255,255,255,0.4);}
+.empty-state h3{color:var(--ink-700);margin-bottom:6px;font-size:17px;}
+.empty-state p{font-size:13px;max-width:420px;margin:0 auto 14px;line-height:1.5;}
+#toast-wrap{position:fixed;bottom:18px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:200;}
+.toast{background:var(--turf-900);color:#fff;padding:10px 16px;border-radius:4px;font-size:13px;box-shadow:var(--shadow-soft);border-left:4px solid var(--board-amber);animation:toastin .2s ease;max-width:320px;}
+.toast.bad{border-left-color:var(--flag-red);}
+@keyframes toastin{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:none;}}
+.modal-overlay{position:fixed;inset:0;background:rgba(16,24,15,0.55);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadein .15s ease;}
+.modal-overlay.hidden{display:none;}
+.modal{background:var(--paper-50);border-radius:6px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.35);border-top:5px solid var(--board-amber);}
+.modal-pad{padding:24px 26px;}
+.modal h3{font-size:20px;color:var(--turf-900);margin-bottom:4px;text-transform:uppercase;}
+.modal .modal-sub{font-size:12px;color:var(--ink-500);margin-bottom:18px;}
+label.field-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:5px;margin-top:14px;}
+input[type=text],input[type=number],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:3px;background:#fff;font-size:14px;font-family:'Inter',sans-serif;color:var(--ink-900);}
+input[type=text]:focus,input[type=number]:focus,select:focus{outline:2px solid var(--turf-600);outline-offset:1px;border-color:var(--turf-600);}
+input[type=range]{width:100%;accent-color:var(--turf-600);}
+.attr-row{display:grid;grid-template-columns:110px 1fr 38px;align-items:center;gap:10px;margin-top:10px;}
+.attr-row .attr-name{font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:600;color:var(--ink-700);}
+.attr-row .attr-val{font-size:14px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--turf-700);}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:22px;}
+/* Fantasy team colors */
+.team-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:4px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.05em;}
+footer{text-align:center;padding:18px;font-size:11px;color:var(--ink-500);letter-spacing:0.06em;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;}
+/* Prize money badge */
+.prize-badge{display:inline-block;background:rgba(217,161,59,0.15);border:1px solid rgba(217,161,59,0.4);color:#7a5a0a;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;letter-spacing:0.04em;}
+.earnings-bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px;}
+.earnings-bar-fill{height:100%;background:linear-gradient(90deg,var(--board-amber),var(--turf-600));border-radius:2px;transition:width .4s ease;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <h1>Tee Sheet Tour</h1>
+        <span class="sub" id="season-label-top">Season 1 · Week 0 of 20</span>
+      </div>
+    </div>
+    <nav class="nav-tabs" id="nav-tabs">
+      <button class="nav-tab active" data-view="schedule">Schedule</button>
+      <button class="nav-tab" data-view="roster">Roster</button>
+      <button class="nav-tab" data-view="standings">Tour Standings</button>
+      <button class="nav-tab" data-view="fantasy">Fantasy</button>
+      <button class="nav-tab" data-view="tournament" id="tab-tournament" style="display:none;">This Week</button>
+    </nav>
+    <div class="topbar-right">
+      <span class="season-pill" id="points-leader-pill">No points yet</span>
+      <button class="restart-btn" id="restart-season-btn" title="Wipes roster, career stats, and everything else — starts a brand new tour">Restart Tour</button>
+    </div>
+  </header>
+  <main id="main-content">
+    <section class="view" id="view-schedule"></section>
+    <section class="view" id="view-roster"></section>
+    <section class="view" id="view-standings"></section>
+    <section class="view" id="view-fantasy"></section>
+    <section class="view" id="view-tournament"></section>
+  </main>
+  <footer>Local simulation &middot; saved to your tour server (MongoDB)</footer>
+</div>
+<div id="toast-wrap"></div>
+<div id="modal-root"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ===== CONSTANTS ===== */
+const ATTRS=[
+  {key:'power',label:'Driving Power',desc:'Distance off the tee'},
+  {key:'accuracy',label:'Driving Accuracy',desc:'Keeping tee shots in play'},
+  {key:'irons',label:'Iron Play',desc:'Approach shot precision'},
+  {key:'short',label:'Short Game',desc:'Chipping & bunker recovery'},
+  {key:'putting',label:'Putting',desc:'Touch and read on the green'},
+  {key:'clutch',label:'Mental / Clutch',desc:'Composure under pressure'},
+];
+
+const TEAM_COLORS=[
+  {name:'Eagles',primary:'#1a4a1e',accent:'#4caf50',light:'rgba(76,175,80,0.12)'},
+  {name:'Birdie Boys',primary:'#1a3a5c',accent:'#2196f3',light:'rgba(33,150,243,0.12)'},
+  {name:'Iron Wolves',primary:'#4a1a1a',accent:'#f44336',light:'rgba(244,67,54,0.12)'},
+  {name:'Sand Cats',primary:'#4a3a1a',accent:'#ff9800',light:'rgba(255,152,0,0.12)'},
+  {name:'Pin Seekers',primary:'#3a1a4a',accent:'#9c27b0',light:'rgba(156,39,176,0.12)'},
+];
+
+// Prize money distribution as % of purse (positions 1-20, rest share minimum)
+const PRIZE_PCT=[18,10.8,6.8,4.8,4,3.6,3.35,3.1,2.9,2.7,2.5,2.3,2.1,1.95,1.8,1.7,1.6,1.5,1.4,1.3];
+
+const BASE_POINTS=[500,300,190,135,110,100,90,85,80,75,70,65,60,55,50,48,46,44,42,40,38,36,34,32,30,28,26,24,22,20];
+
+// Fantasy points per tournament outcome
+const FANTASY_PTS={win:100,top5:50,top10:30,top20:15,madeCut:8,eagle:5,birdie:2,bogey:-1,doublePlus:-3};
+
+function defaultAttrs(level){level=level||70;const o={};ATTRS.forEach(a=>o[a.key]=level);return o;}
+
+function makeHoles(parsArr,yardBase){
+  return parsArr.map((par,i)=>{const base=par===3?165:par===5?540:410;const variance=((i*37)%60)-30;return{hole:i+1,par,yards:Math.max(120,base+variance+(yardBase||0))};});
+}
+const STD_PARS=[4,4,3,5,4,4,3,4,5,4,3,4,5,4,4,3,5,4];
+function courseVariant(seedShift,yardBase){
+  const arr=STD_PARS.slice();
+  if(seedShift%3===1){arr[2]=5;arr[16]=3;}
+  if(seedShift%4===2){arr[8]=4;arr[12]=5;}
+  return makeHoles(arr,yardBase);
+}
+
+const TOURNAMENT_SEEDS=[
+  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0},
+  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:8.3,seed:2,yard:-10},
+  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:3,yard:-5},
+  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:4,yard:10},
+  {name:"THE PLAYERS Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:5,yard:5},
+  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:20,seed:6,yard:15},
+  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:7,yard:-20},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:18.5,seed:8,yard:20},
+  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.7,seed:9,yard:-15},
+  {name:"the Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:10,yard:8},
+  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:21.5,seed:11,yard:18},
+  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:12,yard:-12},
+  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:7.5,seed:13,yard:-18},
+  // Team Event — fantasy teams compete directly
+  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:14,yard:0,teamEvent:false},
+  {name:"Zurich Classic — Team Challenge",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:20,seed:15,yard:-8,teamEvent:true,bigPurse:true},
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:16,yard:6,playoff:true},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:17,yard:22,playoff:true},
+  {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:75,seed:18,yard:4,playoff:true},
+  {name:"Procore Championship",course:"Silverado Resort (North)",loc:"Napa, CA",major:false,purse:8.4,seed:19,yard:-6},
+  {name:"Shriners Children's Open",course:"TPC Summerlin",loc:"Las Vegas, NV",major:false,purse:8.6,seed:20,yard:-9},
+];
+
+function buildTournamentDefs(){
+  return TOURNAMENT_SEEDS.map((t,idx)=>({
+    id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,
+    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,purseM:t.purse,rounds:t.major?4:2,
+    holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
+  }));
+}
+
+function pointsForPosition(pos,isMajor){
+  const idx=pos-1;
+  let base=idx<BASE_POINTS.length?BASE_POINTS[idx]:Math.max(2,20-(idx-BASE_POINTS.length));
+  if(isMajor)base=Math.round(base*1.6);
+  return base;
+}
+
+function prizeForPosition(pos,purseM,fieldSize){
+  const idx=pos-1;
+  const pct=idx<PRIZE_PCT.length?PRIZE_PCT[idx]:Math.max(0.3,1.0-(idx-PRIZE_PCT.length)*0.05);
+  return Math.round(purseM*1000000*pct/100);
+}
+
+/* ===== STORAGE =====
+   Game state now lives in MongoDB via the companion Express API (see server.js).
+   On load we fetch the saved profile from the server; on every change we push
+   the full state back up (debounced so rapid actions don't spam the network).
+   If the API can't be reached at all (e.g. you're just opening this HTML file
+   directly, with no server running), we fall back to localStorage so the app
+   still works standalone — you'll see a small notice when that happens. */
+const STORAGE_KEY='teeSheetTour_save_v3';
+const SAVE_VERSION=3;
+
+// Point this at wherever server.js is running. Override by setting
+// window.TEE_SHEET_API_BASE before this script runs, e.g. from a different port/host.
+const API_BASE=(window.TEE_SHEET_API_BASE||'http://localhost:4000/api');
+const PROFILE_ID=(function(){
+  // One save slot per browser by default — change this if you want multiple
+  // independent tours against the same server (e.g. multiple users).
+  let id=null;
+  try{id=window.localStorage.getItem('teeSheetTour_profileId');}catch(e){}
+  if(!id){id='profile_'+Math.random().toString(36).slice(2,10);try{window.localStorage.setItem('teeSheetTour_profileId',id);}catch(e){}}
+  return id;
+})();
+
+let USING_MEMORY_FALLBACK=false;
+let USING_LOCAL_FALLBACK=false;
+let LOCAL_BACKEND=(function(){
+  try{const real=window.localStorage;real.setItem('__probe__','1');real.removeItem('__probe__');return real;}
+  catch(e){USING_MEMORY_FALLBACK=true;const mem={};return{getItem:k=>k in mem?mem[k]:null,setItem:(k,v)=>{mem[k]=String(v);},removeItem:k=>{delete mem[k];}};}
+})();
+
+function freshState(){
+  return{
+    version:SAVE_VERSION,seasonNumber:1,
+    players:[],
+    tournamentDefs:buildTournamentDefs(),
+    schedule:[],
+    currentWeekIndex:0,
+    standings:{},           // playerId -> {points, earnings, wins, events, history:[{trnName,pos,pts,prize}]}
+    history:[],
+    activeTournamentId:null,
+    fedexStandings:{},      // playerId -> {points, earnings} — playoff events only, not counted for tour standings
+    majorChampions:{},      // trnId -> [{season, playerId, toPar, strokes}]
+    fantasy:{
+      drafted:false,        // whether draft has been done this season
+      captains:[],          // array of {id,name,color} — up to 5
+      teams:{},             // captainId -> {name, color, playerIds:[]}
+      standings:{},         // captainId -> {pts, breakdown:[{trnId,pts,detail}]}
+      teamEventResults:{},  // trnId -> {captainId rankings}
+    }
+  };
+}
+
+function normalizeState(p){
+  if(!p||p.version!==SAVE_VERSION)return freshState();
+  p.players=p.players||[];
+  p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
+  p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
+  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};
+  if(!p.fantasy)p.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
+  return p;
+}
+
+function loadStateLocal(){
+  try{
+    const raw=LOCAL_BACKEND.getItem(STORAGE_KEY);
+    if(!raw)return freshState();
+    return normalizeState(JSON.parse(raw));
+  }catch(e){return freshState();}
+}
+
+function saveStateLocal(state){
+  try{LOCAL_BACKEND.setItem(STORAGE_KEY,JSON.stringify(state));}
+  catch(e){showToast('Could not save locally — storage may be full.',true);}
+}
+
+// Tries the Mongo-backed API first; falls back to localStorage if the server
+// isn't reachable at all (network error / CORS / not running).
+async function loadStateRemote(){
+  try{
+    const res=await fetch(`${API_BASE}/state/${PROFILE_ID}`);
+    if(res.status===404)return freshState(); // no save yet for this profile
+    if(!res.ok)throw new Error('Bad response '+res.status);
+    const data=await res.json();
+    USING_LOCAL_FALLBACK=false;
+    return normalizeState(data.state);
+  }catch(e){
+    USING_LOCAL_FALLBACK=true;
+    return loadStateLocal();
+  }
+}
+
+let SAVE_IN_FLIGHT=false,SAVE_QUEUED=false,SAVE_DEBOUNCE_TIMER=null;
+function saveState(){
+  // Always mirror to localStorage immediately and synchronously — cheap insurance
+  // so a closed tab never loses progress even mid-flight to the server.
+  saveStateLocal(STATE);
+  if(USING_LOCAL_FALLBACK)return; // no server to push to
+  clearTimeout(SAVE_DEBOUNCE_TIMER);
+  SAVE_DEBOUNCE_TIMER=setTimeout(pushStateToServer,400);
+}
+
+async function pushStateToServer(){
+  if(SAVE_IN_FLIGHT){SAVE_QUEUED=true;return;}
+  SAVE_IN_FLIGHT=true;
+  try{
+    const res=await fetch(`${API_BASE}/state/${PROFILE_ID}`,{
+      method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:STATE})
+    });
+    if(!res.ok)throw new Error('Bad response '+res.status);
+  }catch(e){
+    USING_LOCAL_FALLBACK=true;
+    showToast("Lost connection to the server — saving locally in this browser for now.",true);
+  }finally{
+    SAVE_IN_FLIGHT=false;
+    if(SAVE_QUEUED){SAVE_QUEUED=false;pushStateToServer();}
+  }
+}
+
+let STATE=freshState(); // placeholder until the async load below resolves
+
+/* ===== HELPERS ===== */
+function uid(p){return p+'_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4);}
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+function overallOf(attrs){
+  const w={power:0.16,accuracy:0.18,irons:0.22,short:0.18,putting:0.18,clutch:0.08};
+  let s=0;ATTRS.forEach(a=>s+=attrs[a.key]*w[a.key]);return Math.round(s);
+}
+
+/* ===== DYNAMIC FORM (hot/cold streaks) =====
+   Looks at a player's last 5 tournament results (toPar relative to field average
+   that week, so it's not skewed by easy/hard courses) and turns that into a
+   temporary form rating. Hot form buffs effective attributes, cold form nerfs them.
+   This never touches the player's base attrs — it's only applied at simulation time. */
+const FORM_WINDOW=5;
+const FORM_MAX_SWING=3; // max +/- points applied to each attribute at full hot/cold
+
+function playerFormScore(playerId){
+  const st=STATE.standings[playerId];if(!st||!st.history||!st.history.length)return 0;
+  const recent=st.history.slice(-FORM_WINDOW);
+  let weighted=0,totalWeight=0;
+  recent.forEach((h,i)=>{
+    // missed cuts count as a notably cold result; relative-to-field already baked into toPar
+    const rel=h.pos==='MC'?6:-(h.fieldRelToPar!=null?h.fieldRelToPar:0);
+    // more recent results count slightly more
+    const weight=1+i*0.15;
+    weighted+=rel*weight;totalWeight+=weight;
+  });
+  const avg=totalWeight?weighted/totalWeight:0;
+  // squash into roughly -1 (ice cold) .. +1 (red hot)
+  return clamp(avg/4,-1,1);
+}
+
+function formLabel(score){
+  if(score>=0.55)return{label:'🔥 Red Hot',color:'var(--flag-red)'};
+  if(score>=0.2)return{label:'On Form',color:'var(--turf-600)'};
+  if(score<=-0.55)return{label:'🧊 Ice Cold',color:'var(--ink-500)'};
+  if(score<=-0.2)return{label:'Off Form',color:'var(--ink-500)'};
+  return{label:'Steady',color:'var(--ink-700)'};
+}
+
+// Effective attrs used for simulation = base attrs + form-driven swing
+function effectiveAttrs(player){
+  const form=playerFormScore(player.id);
+  if(form===0)return player.attrs;
+  const out={};
+  ATTRS.forEach(a=>{out[a.key]=clamp(Math.round(player.attrs[a.key]+form*FORM_MAX_SWING),1,99);});
+  return out;
+}
+function gaussian(mean,sd){
+  let u=0,v=0;while(u===0)u=Math.random();while(v===0)v=Math.random();
+  return mean+Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v)*sd;
+}
+function ensureScheduleForSeason(){
+  if(STATE.schedule&&STATE.schedule.length===STATE.tournamentDefs.length)return;
+  STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
+}
+function makeTournamentInstance(def){
+  return{defId:def.id,status:'scheduled',field:[],rounds:[],cutLine:null,leaderboardCache:null,winnerId:null,completedAt:null,cutPlayers:null,cutAppliedAfterRound:null};
+}
+function getDef(defId){return STATE.tournamentDefs.find(d=>d.id===defId);}
+function getInstance(defId){return STATE.schedule.find(s=>s.defId===defId);}
+function getPlayer(id){return STATE.players.find(p=>p.id===id);}
+function topPlayersByPoints(n){
+  return STATE.players.slice()
+    .sort((a,b)=>((STATE.standings[b.id]||{}).points||0)-((STATE.standings[a.id]||{}).points||0))
+    .slice(0,n);
+}
+function escapeHTML(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function formatMoney(n){
+  if(n>=1000000)return '$'+(n/1000000).toFixed(2)+'M';
+  if(n>=1000)return '$'+(n/1000).toFixed(0)+'K';
+  return '$'+n;
+}
+function flagEmoji(code){
+  const map={US:'🇺🇸',ES:'🇪🇸',SE:'🇸🇪',KR:'🇰🇷',JP:'🇯🇵',ZA:'🇿🇦',AU:'🇦🇺',IE:'🇮🇪',ENG:'🏴',SCO:'🏴',CA:'🇨🇦',DE:'🇩🇪',FR:'🇫🇷',IT:'🇮🇹',AR:'🇦🇷',MX:'🇲🇽',NO:'🇳🇴',BE:'🇧🇪',NZ:'🇳🇿',CH:'🇨🇭'};
+  return map[code]||'🏳️';
+}
+const COUNTRY_OPTS=['US','ENG','SCO','ES','SE','KR','JP','ZA','AU','IE','CA','DE','FR','IT','AR','MX','NO','BE','NZ','CH'];
+function initialsOf(name){return name.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();}
+function avatarColor(name){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%360;return `hsl(${h},38%,32%)`;}
+
+function showToast(msg,bad){
+  const wrap=document.getElementById('toast-wrap');const el=document.createElement('div');
+  el.className='toast'+(bad?' bad':'');el.textContent=msg;wrap.appendChild(el);
+  setTimeout(()=>{el.style.transition='opacity .3s';el.style.opacity='0';setTimeout(()=>el.remove(),300);},2800);
+}
+
+/* ===== SIMULATION ENGINE ===== */
+function newHoleState(holeDef){
+  return{hole:holeDef.hole,par:holeDef.par,totalYards:holeDef.yards,remaining:holeDef.yards,
+    lie:'tee',strokes:0,holedOut:false,log:[],puttDistanceFt:null,eagles:0,birdies:0,bogeys:0,doubles:0};
+}
+function skillFactor(skill){return 0.55+(skill/99)*0.9;}
+function chooseShotType(hs){
+  if(hs.lie==='green')return 'putt';
+  if(hs.lie==='sand')return hs.remaining<=40?'bunker':'approach';
+  if(hs.remaining>230)return hs.lie==='tee'?'tee_long':'long_approach';
+  if(hs.remaining>100)return 'approach';
+  if(hs.remaining>0)return 'chip';
+  return 'putt';
+}
+
+function resolveFullSwing(hs,attrs,shotType){
+  const{power,accuracy,irons,clutch}=attrs;let res={};
+  if(shotType==='tee_long'){
+    const distPotential=250+(power/99)*100;const distActual=clamp(gaussian(distPotential,14),190,380);
+    const accRoll=Math.random()*100;const missThreshold=30+(accuracy/99)*55;
+    let newLie='fairway';
+    if(accRoll>missThreshold+15)newLie='rough';if(accRoll>missThreshold+38)newLie='recovery';
+    hs.remaining=clamp(hs.remaining-distActual,0,9999);hs.lie=hs.remaining<=0?'green':newLie;
+    res.text=`Drive ${Math.round(distActual)}y — ${newLie==='fairway'?'finds the fairway':newLie==='rough'?'drifts into the rough':'leaks into trouble'}.`;
+  } else {
+    const lieMult=hs.lie==='fairway'?1.0:hs.lie==='rough'?0.85:hs.lie==='recovery'?0.6:0.9;
+    const skillP=(irons/99)*lieMult;
+    const distPotential=hs.remaining*(0.93+skillP*0.1);
+    const distActual=clamp(gaussian(distPotential,18+(1-skillP)*22),hs.remaining*0.55,hs.remaining*1.08);
+    const leftover=clamp(hs.remaining-distActual,0,9999);hs.remaining=leftover;
+    const qualityRoll=Math.random()*100+(irons-50)*0.5+(clutch-50)*0.15;
+    let newLie;
+    if(leftover<=0)newLie='green';
+    else if(qualityRoll>70)newLie='fairway';else if(qualityRoll>40)newLie='rough';
+    else if(qualityRoll>25)newLie='sand';else newLie='recovery';
+    hs.lie=newLie;
+    if(leftover<=0){
+      const closeness=clamp(gaussian(28-skillP*20,12),2,90);hs.puttDistanceFt=Math.round(closeness);hs.lie='green';
+      res.text=`Approach finds the green, ${hs.puttDistanceFt} ft from the pin.`;
+    }else res.text=`Shot covers ${Math.round(distActual)}y, ${Math.round(leftover)}y remaining, into the ${newLie}.`;
+  }
+  return res;
+}
+
+function resolveChip(hs,attrs){
+  const skillP=attrs.short/99;const dist=hs.remaining;
+  const closenessBase=clamp(14-skillP*10,1.5,16);const closeness=clamp(gaussian(closenessBase+dist*0.04,6),0.5,45);
+  const chipInChance=dist<25?(0.05+skillP*0.12):0.01;
+  if(Math.random()<chipInChance){hs.holedOut=true;hs.lie='hole';return{text:'Chips it in! 🎯',holed:true};}
+  hs.remaining=0;hs.lie='green';hs.puttDistanceFt=Math.round(closeness);
+  return{text:`Chips on, ${hs.puttDistanceFt} ft for the putt.`};
+}
+
+function resolveBunker(hs,attrs){
+  const skillP=attrs.short/99;const closeness=clamp(gaussian(16-skillP*10,7),1,40);
+  if(Math.random()<0.04+(1-skillP)*0.05){hs.remaining=clamp(hs.remaining*0.4,5,60);return{text:'Leaves it in the sand — still in the bunker.'};}
+  hs.remaining=0;hs.lie='green';hs.puttDistanceFt=Math.round(closeness);return{text:`Splashes out to ${hs.puttDistanceFt} ft.`};
+}
+
+function resolvePutt(hs,attrs){
+  const skillP=attrs.putting/99;const clutchP=attrs.clutch/99;const distFt=hs.puttDistanceFt;
+  let makeChance;
+  if(distFt<=2)makeChance=0.93+skillP*0.06;
+  else if(distFt<=5)makeChance=0.55+skillP*0.35;
+  else if(distFt<=10)makeChance=0.25+skillP*0.4;
+  else if(distFt<=20)makeChance=0.08+skillP*0.27;
+  else if(distFt<=35)makeChance=0.02+skillP*0.12;
+  else makeChance=0.01+skillP*0.05;
+  makeChance+=((clutchP-0.5)*0.05);makeChance=clamp(makeChance,0.01,0.97);
+  if(Math.random()<makeChance){
+    hs.holedOut=true;hs.lie='hole';
+    const flavor=distFt>20?'Bomb from distance — in the cup!':distFt>8?'Rolls in!':'Good putt, in the heart.';
+    return{text:flavor,holed:true};
+  }
+  const leaveBase=distFt>20?distFt*0.22:distFt>8?distFt*0.28:distFt*0.35;
+  const leave=clamp(gaussian(leaveBase,leaveBase*0.4+0.5),0.3,distFt*0.9);
+  hs.puttDistanceFt=Math.round(leave*10)/10;
+  return{text:`Just slides by, ${hs.puttDistanceFt} ft left.`};
+}
+
+function playShot(hs,attrs){
+  hs.strokes+=1;const shotType=chooseShotType(hs);let res;
+  if(shotType==='tee_long')res=resolveFullSwing(hs,attrs,'tee_long');
+  else if(shotType==='approach'||shotType==='long_approach')res=resolveFullSwing(hs,attrs,shotType);
+  else if(shotType==='chip')res=resolveChip(hs,attrs);
+  else if(shotType==='bunker')res=resolveBunker(hs,attrs);
+  else res=resolvePutt(hs,attrs);
+  res.shotType=shotType;res.strokeNum=hs.strokes;hs.log.push(res.text);
+  if(hs.strokes>=12&&!hs.holedOut){hs.holedOut=true;hs.forcedPickup=true;res.text+=' Picks up — max score.';}
+  return res;
+}
+
+// Play a complete hole automatically for a player (used in batch/simulate-all mode)
+function simulateFullHole(holeDef,attrs){
+  const hs=newHoleState(holeDef);
+  while(!hs.holedOut)playShot(hs,attrs);
+  return hs;
+}
+
+/* ===== TOURNAMENT LIFECYCLE ===== */
+function startTournament(defId,fieldPlayerIds){
+  const inst=getInstance(defId);const def=getDef(defId);
+  if(!inst||!def)return;if(fieldPlayerIds.length<2){showToast('Pick at least 2 players.',true);return;}
+  inst.field=fieldPlayerIds.slice();inst.status='in_progress';inst.rounds=[];
+  for(let r=1;r<=def.rounds;r++){
+    const scores={};fieldPlayerIds.forEach(pid=>scores[pid]=new Array(18).fill(null));
+    inst.rounds.push({roundNum:r,scores,complete:false});
+  }
+  inst.cutAppliedAfterRound=def.rounds===4?2:null;inst.cutPlayers=null;
+  STATE.activeTournamentId=defId;saveState();
+}
+
+function computeLeaderboard(defId){
+  const inst=getInstance(defId);const def=getDef(defId);if(!inst)return[];
+  const rows=inst.field.map(pid=>{
+    let strokes=0,holesPlayed=0,parPlayed=0;
+    const cutOut=inst.cutPlayers&&!inst.cutPlayers.has(pid);
+    for(let r=0;r<inst.rounds.length;r++){
+      const rd=inst.rounds[r];const arr=rd.scores[pid]||[];
+      for(let h=0;h<18;h++){if(arr[h]!=null){strokes+=arr[h];holesPlayed++;parPlayed+=def.holes[h].par;}}
+    }
+    return{playerId:pid,strokes,toPar:strokes-parPlayed,holesPlayed,
+      thru:holesPlayed%18===0&&holesPlayed>0?18:holesPlayed%18,
+      roundsComplete:Math.floor(holesPlayed/18),cut:!!cutOut,
+      finished:holesPlayed>=18*inst.rounds.length||cutOut};
+  });
+  rows.sort((a,b)=>a.cut!==b.cut?a.cut?1:-1:a.toPar-b.toPar);
+  let pos=0,lastTP=null,lastCut=false;
+  rows.forEach((row,i)=>{
+    if(row.holesPlayed===0){row.position=null;return;}
+    if(row.toPar!==lastTP||row.cut!==lastCut)pos=i+1;
+    row.position=pos;lastTP=row.toPar;lastCut=row.cut;
+  });
+  return rows;
+}
+
+function applyCutIfNeeded(defId){
+  const inst=getInstance(defId);const def=getDef(defId);
+  if(!def||def.rounds!==4)return;if(inst.cutPlayers)return;
+  const ar=inst.cutAppliedAfterRound;
+  const allDone=inst.rounds.slice(0,ar).every(r=>inst.field.every(pid=>r.scores[pid].every(v=>v!=null)));
+  if(!allDone)return;
+  const lb=computeLeaderboard(defId);const cutSize=Math.max(2,Math.min(10,Math.ceil(inst.field.length*0.65)));
+  const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=new Set();
+  if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.add(r.playerId);});}
+  inst.cutPlayers=made;saveState();
+}
+
+function isRoundComplete(inst,roundIdx){
+  const rd=inst.rounds[roundIdx];
+  return inst.field.every(pid=>{
+    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return true;
+    return rd.scores[pid].every(v=>v!=null);
+  });
+}
+
+function finishTournamentIfDone(defId){
+  const inst=getInstance(defId);const def=getDef(defId);
+  if(inst.status==='complete')return false; // already scored — never award twice
+  const lastIdx=inst.rounds.length-1;if(!isRoundComplete(inst,lastIdx))return false;
+  inst.status='complete';inst.completedAt=Date.now();
+  const lb=computeLeaderboard(defId);
+  const finishers=lb.filter(r=>!r.cut);
+  if(finishers.length)inst.winnerId=finishers[0].playerId;
+  inst.leaderboardCache=lb;
+
+  // Field average toPar this week — used so "form" reflects play relative to
+  // the field, not just whether the course was generally easy or hard.
+  const playedRows=lb.filter(r=>r.holesPlayed>0);
+  const fieldAvgToPar=playedRows.length?playedRows.reduce((s,r)=>s+r.toPar,0)/playedRows.length:0;
+
+  // Award points + prize money
+  finishers.forEach(row=>{
+    const pts=pointsForPosition(row.position,def.major);
+    const prize=prizeForPosition(row.position,def.purseM,finishers.length);
+    if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+    const st=STATE.standings[row.playerId];
+    // Playoff events: points go to FedEx Cup standings ONLY, not tour standings
+    if(def.playoff){
+      if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
+      STATE.fedexStandings[row.playerId].points+=pts;
+      STATE.fedexStandings[row.playerId].earnings+=prize;
+    } else {
+      st.points+=pts;
+    }
+    st.earnings+=prize;st.events++;
+    if(row.position===1)st.wins++;
+    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
+  });
+  // missed cut still gets event credit
+  lb.filter(r=>r.cut).forEach(row=>{
+    if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+    STATE.standings[row.playerId].events++;
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
+  });
+
+  // Fantasy scoring
+  updateFantasyScores(defId,lb);
+
+  if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+  saveState();return true;
+}
+
+function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
+  const inst=getInstance(defId);if(!inst)return;
+  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
+}
+
+/* ===== FANTASY ===== */
+function updateFantasyScores(defId,lb){
+  const def=getDef(defId);const f=STATE.fantasy;
+  if(!f.drafted||!f.captains.length)return;
+  const finishers=lb.filter(r=>!r.cut);
+  f.captains.forEach(cap=>{
+    const team=f.teams[cap.id];if(!team)return;
+    if(!f.standings[cap.id])f.standings[cap.id]={pts:0,breakdown:[]};
+    let trnPts=0;const detail=[];
+    team.playerIds.forEach(pid=>{
+      const row=lb.find(r=>r.playerId===pid);if(!row)return;
+      const p=getPlayer(pid);let pPts=0;
+      if(!row.cut){
+        // position bonus
+        if(row.position===1)pPts+=FANTASY_PTS.win;
+        else if(row.position<=5)pPts+=FANTASY_PTS.top5;
+        else if(row.position<=10)pPts+=FANTASY_PTS.top10;
+        else if(row.position<=20)pPts+=FANTASY_PTS.top20;
+        pPts+=FANTASY_PTS.madeCut;
+        // hole stats (approximate from final score)
+        const inst=getInstance(defId);if(inst){
+          let eagles=0,birdies=0,bogeys=0,doubles=0;
+          inst.rounds.forEach(rd=>{
+            const scoreArr=rd.scores[pid]||[];
+            scoreArr.forEach((s,hi)=>{if(s==null)return;const par=def.holes[hi].par;const d=s-par;
+              if(d<=-2)eagles++;else if(d===-1)birdies++;else if(d===1)bogeys++;else if(d>=2)doubles++;});
+          });
+          pPts+=eagles*FANTASY_PTS.eagle+birdies*FANTASY_PTS.birdie+bogeys*FANTASY_PTS.bogey+doubles*FANTASY_PTS.doublePlus;
+          detail.push({name:p?.name,pos:row.position,toPar:row.toPar,pPts,eagles,birdies,bogeys});
+        }
+      }
+      trnPts+=pPts;
+    });
+    f.standings[cap.id].pts+=trnPts;
+    f.standings[cap.id].breakdown.push({trnId:defId,trnName:def.name,pts:trnPts,detail});
+  });
+
+  // Team event handling
+  if(def.teamEvent){
+    const teamScores=f.captains.map(cap=>{
+      const team=f.teams[cap.id];if(!team)return{capId:cap.id,total:9999};
+      let total=0;
+      team.playerIds.forEach(pid=>{
+        const row=lb.find(r=>r.playerId===pid);if(row&&!row.cut)total+=row.toPar;
+      });
+      return{capId:cap.id,total};
+    }).sort((a,b)=>a.total-b.total);
+    f.teamEventResults[defId]=teamScores;
+    // Bonus fantasy pts for team event finish
+    teamScores.forEach((ts,i)=>{const bonus=[50,30,20,10,5][i]||0;if(f.standings[ts.capId])f.standings[ts.capId].pts+=bonus;});
+  }
+}
+
+/* ===== SIMULATE HOLE FOR ALL / SELECTED PLAYERS ===== */
+function simulateHoleForPlayers(defId,roundIdx,holeIdx,playerIds){
+  const inst=getInstance(defId);const def=getDef(defId);
+  playerIds.forEach(pid=>{
+    if(inst.rounds[roundIdx].scores[pid][holeIdx]!=null)return; // already played
+    const p=getPlayer(pid);if(!p)return;
+    const hs=simulateFullHole(def.holes[holeIdx],effectiveAttrs(p));
+    inst.rounds[roundIdx].scores[pid][holeIdx]=hs.strokes;
+  });
+  saveState();
+}
+
+function simulateRoundForPlayers(defId,roundIdx,playerIds){
+  const inst=getInstance(defId);const def=getDef(defId);
+  for(let h=0;h<18;h++){
+    playerIds.forEach(pid=>{
+      if(inst.rounds[roundIdx].scores[pid][h]!=null)return;
+      const p=getPlayer(pid);if(!p)return;
+      const hs=simulateFullHole(def.holes[h],effectiveAttrs(p));
+      inst.rounds[roundIdx].scores[pid][h]=hs.strokes;
+    });
+  }
+  saveState();
+}
+
+/* ===== RENDER ROSTER ===== */
+function renderRoster(){
+  const el=document.getElementById('view-roster');
+  el.innerHTML=`
+    <div class="section-head">
+      <div><span class="eyebrow">Your Tour</span><h2>Player Roster</h2></div>
+      <button class="btn amber" id="add-player-btn">+ Add Player</button>
+    </div>
+    ${STATE.players.length===0?`<div class="empty-state"><h3>No players yet</h3><p>Add 20–25 players to fill out a realistic field.</p><button class="btn" id="add-player-btn-2">+ Add your first player</button></div>`:`
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;">
+      ${STATE.players.map(p=>rosterCardHTML(p)).join('')}
+    </div>
+    <p style="margin-top:16px;font-size:12px;color:var(--ink-500);">${STATE.players.length} player${STATE.players.length===1?'':'s'} on roster</p>`}
+  `;
+  document.getElementById('add-player-btn')?.addEventListener('click',()=>openPlayerModal(null));
+  document.getElementById('add-player-btn-2')?.addEventListener('click',()=>openPlayerModal(null));
+  el.querySelectorAll('[data-edit-player]').forEach(b=>b.addEventListener('click',()=>openPlayerModal(b.dataset.editPlayer)));
+  el.querySelectorAll('[data-del-player]').forEach(b=>b.addEventListener('click',()=>{
+    const id=b.dataset.delPlayer;const p=getPlayer(id);
+    if(confirm(`Remove ${p.name}?`)){STATE.players=STATE.players.filter(pl=>pl.id!==id);STATE.schedule.forEach(inst=>{if(inst.status==='scheduled')inst.field=inst.field.filter(pid=>pid!==id);});saveState();renderRoster();showToast(`${p.name} removed.`);}
+  }));
+  el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+}
+
+function rosterCardHTML(p){
+  const ov=p.overall;const ovColor=ov>=85?'var(--turf-600)':ov>=70?'var(--board-amber)':'var(--flag-red-dim)';
+  const st=STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0};
+  const career=p.career||{wins:0,earnings:0,events:0};
+  const totalWins=career.wins+(st.wins||0),totalEarnings=career.earnings+(st.earnings||0),totalEvents=career.events+(st.events||0);
+  const formScore=playerFormScore(p.id);const form=formLabel(formScore);
+  const effOv=overallOf(effectiveAttrs(p));
+  // find fantasy team
+  let teamBadge='';
+  if(STATE.fantasy.drafted){
+    for(const [capId,team] of Object.entries(STATE.fantasy.teams)){
+      if(team.playerIds.includes(p.id)){
+        const cap=STATE.fantasy.captains.find(c=>c.id===capId);
+        if(cap){teamBadge=`<span style="font-size:10px;background:${cap.color.light};color:${cap.color.primary};border:1px solid ${cap.color.accent};padding:1px 6px;border-radius:3px;font-family:'Barlow Condensed',sans-serif;font-weight:700;">${team.name}</span>`;}
+        break;
+      }
+    }
+  }
+  return`<div class="card" style="padding:14px;">
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div style="width:42px;height:42px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:15px;flex-shrink:0;">${initialsOf(p.name)}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Oswald',sans-serif;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          ${flagEmoji(p.country)} ${escapeHTML(p.name)} ${teamBadge}
+        </div>
+        <div style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${totalEvents} events · ${totalWins} W · ${formatMoney(totalEarnings)}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="num" style="font-size:22px;color:${ovColor};">${ov}</div>
+        <div style="font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:${form.color};letter-spacing:0.04em;white-space:nowrap;" title="Effective rating right now: ${effOv}">${form.label}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:10px;">
+      ${ATTRS.map(a=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-700);"><span>${a.label.split(' ')[0]}</span><span class="num">${p.attrs[a.key]}</span></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:6px;margin-top:12px;">
+      <button class="btn ghost btn-sm" data-view-profile="${p.id}" style="flex:1;">Profile</button>
+      <button class="btn ghost btn-sm" data-edit-player="${p.id}">Edit</button>
+      <button class="btn ghost btn-sm" data-del-player="${p.id}" style="color:var(--flag-red);border-color:var(--flag-red-dim);">✕</button>
+    </div>
+  </div>`;
+}
+
+function openProfileModal(pid){
+  const p=getPlayer(pid);if(!p)return;
+  const st=STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0,history:[]};
+  const career=p.career||{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};
+  const totalEarnings=(career.earnings||0)+(st.earnings||0);
+  const totalWins=(career.wins||0)+(st.wins||0);
+  const totalEvents=(career.events||0)+(st.events||0);
+  const totalPoints=(career.points||0)+(st.points||0); // lifetime points across seasons, separate from this season's race
+  const hist=(st.history||[]).slice().reverse();
+  const careerHist=(career.history||[]).slice().reverse();
+  const maxEarnings=Math.max(...(st.history||[]).filter(h=>h.prize>0).map(h=>h.prize),1);
+  const formScore=playerFormScore(p.id);const form=formLabel(formScore);
+  const effAttrs=effectiveAttrs(p);const effOv=overallOf(effAttrs);
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" id="profile-overlay">
+    <div class="modal" style="max-width:600px;">
+      <div class="modal-pad">
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:18px;">
+          <div style="width:56px;height:56px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</div>
+          <div>
+            <h3 style="font-size:22px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</h3>
+            <div style="font-size:12px;color:var(--ink-500);">Overall: <span class="num" style="font-size:15px;color:var(--turf-700);">${p.overall}</span> &middot; ${p.country}${career.seasons?` &middot; ${career.seasons} season${career.seasons===1?'':'s'} played`:''}</div>
+          </div>
+          <div style="margin-left:auto;text-align:right;">
+            <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Career Earnings</div>
+            <div class="num" style="font-size:22px;color:var(--board-amber);">${formatMoney(totalEarnings)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--sand-200);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
+          <div>
+            <div style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;">Current Form (last ${Math.min(FORM_WINDOW,(st.history||[]).length)} events)</div>
+            <div style="font-family:'Oswald',sans-serif;font-size:16px;color:${form.color};">${form.label}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;">Effective Rating Now</div>
+            <div class="num" style="font-size:20px;color:${effOv>p.overall?'var(--turf-600)':effOv<p.overall?'var(--flag-red)':'var(--ink-900)'};">${effOv}${effOv!==p.overall?` <span style="font-size:11px;">(${effOv>p.overall?'+':''}${effOv-p.overall})</span>`:''}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px;">
+          ${[['Career Events',totalEvents],['Career Wins',totalWins],['Season Points',(st.points||0).toLocaleString()],['Top 10',hist.filter(h=>typeof h.pos==='number'&&h.pos<=10).length]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px;border-radius:4px;text-align:center;"><div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
+        </div>
+        <p style="font-size:11px;color:var(--ink-500);margin:4px 0 18px;">Career totals carry over every season. Season Points reset to zero at the start of each new season.</p>
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">Attributes</div>
+          ${ATTRS.map(a=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
+            <span style="font-size:12px;width:120px;font-family:'Barlow Condensed',sans-serif;font-weight:600;color:var(--ink-700);">${a.label}</span>
+            <div style="flex:1;background:var(--line);border-radius:2px;height:6px;overflow:hidden;"><div style="width:${p.attrs[a.key]}%;height:100%;background:${p.attrs[a.key]>=80?'var(--turf-600)':p.attrs[a.key]>=60?'var(--board-amber)':'var(--flag-red-dim)'};"></div></div>
+            <span class="num" style="font-size:13px;width:28px;text-align:right;">${p.attrs[a.key]}</span>
+          </div>`).join('')}
+        </div>
+        ${hist.length?`<div>
+          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">Tournament History</div>
+          <div style="max-height:220px;overflow-y:auto;" class="scrollbar-thin">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="background:var(--turf-900);color:var(--paper-50);">
+                <th style="padding:6px 8px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Tournament</th>
+                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Pos</th>
+                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Score</th>
+                <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Earnings</th>
+              </tr></thead>
+              <tbody>${hist.map((h,i)=>`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.5)':''};">
+                <td style="padding:6px 8px;font-size:12px;">${escapeHTML(h.trnName)}</td>
+                <td style="padding:6px 8px;text-align:center;" class="num">${h.pos==='MC'?`<span style="color:var(--ink-500);">MC</span>`:h.pos===1?`<span style="color:var(--board-amber);font-weight:700;">🏆 1</span>`:`<span style="${h.pos<=10?'color:var(--turf-700);':''}">T${h.pos}</span>`}</td>
+                <td style="padding:6px 8px;text-align:center;" class="num" style="color:${h.toPar<0?'var(--flag-red)':h.toPar>0?'var(--ink-700)':''};">${h.toPar===0?'E':h.toPar>0?'+'+h.toPar:h.toPar}</td>
+                <td style="padding:6px 8px;text-align:right;" class="num">${h.prize>0?`<span style="color:var(--turf-700);">${formatMoney(h.prize)}</span>`:'—'}</td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>`:careerHist.length?`<div>
+          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">Career History (prior seasons)</div>
+          <div style="max-height:220px;overflow-y:auto;" class="scrollbar-thin">
+            <table style="width:100%;border-collapse:collapse;font-size:12px;">
+              <thead><tr style="background:var(--turf-900);color:var(--paper-50);">
+                <th style="padding:6px 8px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Tournament</th>
+                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Season</th>
+                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Pos</th>
+                <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Earnings</th>
+              </tr></thead>
+              <tbody>${careerHist.slice(0,30).map((h,i)=>`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.5)':''};">
+                <td style="padding:6px 8px;font-size:12px;">${escapeHTML(h.trnName)}</td>
+                <td style="padding:6px 8px;text-align:center;" class="num" style="color:var(--ink-500);">S${h.season||1}</td>
+                <td style="padding:6px 8px;text-align:center;" class="num">${h.pos==='MC'?`<span style="color:var(--ink-500);">MC</span>`:h.pos===1?`<span style="color:var(--board-amber);font-weight:700;">🏆 1</span>`:`<span style="${h.pos<=10?'color:var(--turf-700);':''}">T${h.pos}</span>`}</td>
+                <td style="padding:6px 8px;text-align:right;" class="num">${h.prize>0?`<span style="color:var(--turf-700);">${formatMoney(h.prize)}</span>`:'—'}</td>
+              </tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>`:''}
+        <div class="modal-actions"><button class="btn ghost" id="profile-close">Close</button><button class="btn ghost" data-edit-player="${p.id}" id="profile-edit">Edit Ratings</button></div>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('profile-close').addEventListener('click',closeModal);
+  document.getElementById('profile-overlay').addEventListener('click',e=>{if(e.target.id==='profile-overlay')closeModal();});
+  document.getElementById('profile-edit').addEventListener('click',()=>{closeModal();openPlayerModal(pid);});
+}
+
+function openPlayerModal(playerId){
+  const editing=!!playerId;
+  const p=editing?getPlayer(playerId):{id:null,name:'',country:'US',attrs:defaultAttrs(70)};
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" id="player-modal-overlay">
+    <div class="modal"><div class="modal-pad">
+      <h3>${editing?'Edit Player':'New Player'}</h3>
+      <div class="modal-sub">${editing?'Adjust ratings — changes apply immediately.':'Set name, country, and ratings.'}</div>
+      <label class="field-label">Player name</label>
+      <input type="text" id="pm-name" maxlength="40" value="${editing?escapeHTML(p.name):''}" placeholder="e.g. Jonas Hartwell">
+      <label class="field-label">Country</label>
+      <select id="pm-country">${COUNTRY_OPTS.map(c=>`<option value="${c}" ${p.country===c?'selected':''}>${flagEmoji(c)} ${c}</option>`).join('')}</select>
+      <label class="field-label" style="margin-top:18px;">Attributes</label>
+      ${ATTRS.map(a=>`<div class="attr-row"><span class="attr-name">${a.label}</span><input type="range" min="20" max="99" value="${p.attrs[a.key]}" id="pm-attr-${a.key}" title="${a.desc}"><span class="attr-val" id="pm-attr-${a.key}-val">${p.attrs[a.key]}</span></div>`).join('')}
+      <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:center;background:var(--sand-200);padding:8px 12px;border-radius:3px;">
+        <span style="font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--ink-700);text-transform:uppercase;letter-spacing:0.04em;">Overall</span>
+        <span class="num" id="pm-overall" style="font-size:20px;color:var(--turf-700);">${overallOf(p.attrs)}</span>
+      </div>
+      <div class="modal-actions"><button class="btn ghost" id="pm-cancel">Cancel</button><button class="btn amber" id="pm-save">${editing?'Save Changes':'Add Player'}</button></div>
+    </div></div>
+  </div>`;
+  ATTRS.forEach(a=>{
+    const inp=document.getElementById(`pm-attr-${a.key}`);
+    inp.addEventListener('input',()=>{
+      document.getElementById(`pm-attr-${a.key}-val`).textContent=inp.value;
+      const live={};ATTRS.forEach(b=>live[b.key]=parseInt(document.getElementById(`pm-attr-${b.key}`).value,10));
+      document.getElementById('pm-overall').textContent=overallOf(live);
+    });
+  });
+  document.getElementById('pm-cancel').addEventListener('click',closeModal);
+  document.getElementById('player-modal-overlay').addEventListener('click',e=>{if(e.target.id==='player-modal-overlay')closeModal();});
+  document.getElementById('pm-save').addEventListener('click',()=>{
+    const name=document.getElementById('pm-name').value.trim();if(!name){showToast('Give the player a name.',true);return;}
+    const country=document.getElementById('pm-country').value;const attrs={};
+    ATTRS.forEach(a=>attrs[a.key]=clamp(parseInt(document.getElementById(`pm-attr-${a.key}`).value,10),1,99));
+    if(editing){p.name=name;p.country=country;p.attrs=attrs;p.overall=overallOf(attrs);}
+    else STATE.players.push({id:uid('plyr'),name,country,attrs,overall:overallOf(attrs),career:{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]}});
+    saveState();closeModal();renderRoster();refreshTopbar();
+    showToast(editing?`${name} updated.`:`${name} added to the roster.`);
+  });
+}
+
+function closeModal(){document.getElementById('modal-root').innerHTML='';}
+
+function isSeasonComplete(){
+  return STATE.schedule.length>0 && STATE.schedule.every(s=>s.status==='complete');
+}
+
+// Folds this season's standings into each player's permanent career record
+// before the season standings get wiped, so wins/points/earnings/history
+// are never lost going into the next season.
+function foldStandingsIntoCareer(){
+  STATE.players.forEach(p=>{
+    const st=STATE.standings[p.id];if(!st)return;
+    if(!p.career)p.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};
+    p.career.points+=st.points||0;p.career.earnings+=st.earnings||0;
+    p.career.wins+=st.wins||0;p.career.events+=st.events||0;p.career.seasons+=1;
+    p.career.history=(p.career.history||[]).concat(st.history||[]);
+  });
+}
+
+// Destructive full reset: wipes roster, career totals, everything. Used when
+// the person explicitly wants to start over from scratch.
+function restartSeason(){
+  const hasProgress=STATE.schedule.some(s=>s.status!=='scheduled')||Object.keys(STATE.standings).length>0;
+  if(hasProgress)STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,fantasy:STATE.fantasy,archivedAt:Date.now()});
+  STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
+  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};
+  STATE.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
+  saveState();
+}
+
+// Salary cap per player, recalculated at season end based on rating + performance
+// Base cap: overall * $50K. Top-10 finishes add $200K each. Wins add $500K.
+// Minimum $1M, maximum $10M.
+function updateSalaryCaps(){
+  STATE.players.forEach(p=>{
+    const st=STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0,history:[]};
+    const top10=((st.history||[]).filter(h=>typeof h.pos==='number'&&h.pos<=10)).length;
+    let cap=p.overall*50000; // base: OVR * $50K
+    cap+=top10*200000;       // +$200K per top-10 finish this season
+    cap+=(st.wins||0)*500000;// +$500K per win
+    cap=Math.max(1000000,Math.min(10000000,Math.round(cap/100000)*100000));
+    p.salaryCap=cap;
+  });
+}
+
+// Non-destructive season rollover: roster and career totals carry forward,
+// only the season-scoped standings/schedule/fantasy reset.
+function startNextSeason(){
+  foldStandingsIntoCareer();
+  updateSalaryCaps(); // update caps before standings wipe
+  STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,fantasy:STATE.fantasy,archivedAt:Date.now()});
+  STATE.seasonNumber+=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
+  STATE.standings={};STATE.activeTournamentId=null;STATE.fedexStandings={};
+  STATE.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
+  saveState();
+}
+
+/* ===== SCHEDULE VIEW ===== */
+function statusBadge(status){
+  const map={scheduled:{bg:'rgba(59,90,72,0.1)',col:'var(--ink-500)',label:'Not Started'},in_progress:{bg:'rgba(217,161,59,0.18)',col:'#8a5e15',label:'In Progress'},complete:{bg:'rgba(63,122,77,0.18)',col:'var(--turf-700)',label:'Final'}};
+  const s=map[status];return`<span style="background:${s.bg};color:${s.col};font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.06em;text-transform:uppercase;">${s.label}</span>`;
+}
+
+function renderSchedule(){
+  const el=document.getElementById('view-schedule');
+  if(STATE.players.length<2){
+    el.innerHTML=`<div class="section-head"><div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>Tour Schedule</h2></div></div><div class="empty-state"><h3>Build your roster first</h3><p>Add at least a couple of players on the Roster tab.</p><button class="btn" id="goto-roster-btn">Go to Roster</button></div>`;
+    document.getElementById('goto-roster-btn').addEventListener('click',()=>switchView('roster'));return;
+  }
+  ensureScheduleForSeason();
+  const seasonDone=isSeasonComplete();
+  el.innerHTML=`<div class="section-head"><div><span class="eyebrow">Season ${STATE.seasonNumber} &middot; 20 Events</span><h2>Tour Schedule</h2></div></div>
+  ${seasonDone?seasonCompleteBannerHTML():''}
+  <div style="display:flex;flex-direction:column;gap:8px;">${STATE.schedule.map((inst,i)=>scheduleRowHTML(inst,i)).join('')}</div>`;
+  document.getElementById('start-next-season-btn')?.addEventListener('click',()=>{
+    startNextSeason();refreshTopbar();renderSchedule();showToast(`Season ${STATE.seasonNumber} is underway — career stats carried over.`);
+  });
+  el.querySelectorAll('[data-week-action]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const defId=btn.dataset.weekAction;const inst=getInstance(defId);
+      if(inst.status==='scheduled')openFieldModal(defId);
+      else{STATE.activeTournamentId=defId;saveState();switchView('tournament');}
+    });
+  });
+}
+
+function seasonCompleteBannerHTML(){
+  const champ=STATE.players.map(p=>({p,st:STATE.standings[p.id]||{points:0}})).sort((a,b)=>b.st.points-a.st.points)[0];
+  return`<div class="card" style="padding:18px 20px;margin-bottom:16px;border-left:4px solid var(--board-amber);background:linear-gradient(90deg,rgba(217,161,59,0.1),transparent);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:220px;">
+      <div class="eyebrow" style="color:var(--board-amber);">Season ${STATE.seasonNumber} Complete</div>
+      <h3 style="font-size:19px;">${champ&&champ.st.points>0?`🏆 ${escapeHTML(champ.p.name)} wins the Tour Championship points race`:'All 20 events are final'}</h3>
+      <p style="font-size:12px;color:var(--ink-500);margin-top:4px;">Career stats for every player are saved permanently. Start the next season to keep your roster and play on — or wipe everything with Restart up top.</p>
+    </div>
+    <button class="btn amber" id="start-next-season-btn" style="flex-shrink:0;">Start Season ${STATE.seasonNumber+1} →</button>
+  </div>`;
+}
+
+function scheduleRowHTML(inst,i){
+  const def=getDef(inst.defId);const isMajor=def.major;const isTeam=def.teamEvent;const isPlayoff=def.playoff;
+  const lb=inst.status!=='scheduled'?(inst.status==='complete'?inst.leaderboardCache:computeLeaderboard(inst.defId)):null;
+  const leaderRow=lb&&lb.find(r=>r.holesPlayed>0);
+  const leaderTxt=leaderRow?`${getPlayer(leaderRow.playerId)?.name||'—'} ${leaderRow.toPar===0?'E':leaderRow.toPar>0?'+'+leaderRow.toPar:leaderRow.toPar}`:null;
+  const btnLabel=inst.status==='scheduled'?(isPlayoff?'Set Field (Top 10) & Tee Off':'Set Field & Tee Off'):inst.status==='in_progress'?'Resume':'View Result';
+  return`<div class="card" style="display:flex;align-items:center;gap:14px;padding:13px 16px;border-left:4px solid ${isMajor?'var(--board-amber)':isTeam?'#9c27b0':isPlayoff?'var(--flag-red)':'transparent'};">
+    <div class="num" style="width:26px;color:var(--ink-500);font-size:15px;flex-shrink:0;">${i+1}</div>
+    <div style="flex:1;min-width:0;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <h3 style="font-size:16px;">${def.name}</h3>
+        ${isMajor?`<span style="background:var(--turf-900);color:var(--board-amber);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">MAJOR</span>`:''}
+        ${isTeam?`<span style="background:rgba(156,39,176,0.15);color:#6a1b9a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 TEAM EVENT</span>`:''}
+        ${isPlayoff?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">⛳ PLAYOFF · TOP 10</span>`:''}
+        ${statusBadge(inst.status)}
+      </div>
+      <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.course} · ${def.location} · ${def.rounds} rounds · $${def.purseM}M purse</div>
+      ${leaderTxt?`<div style="font-size:12px;color:var(--turf-700);margin-top:3px;font-weight:600;">${inst.status==='complete'?'Won by':'Leader:'} ${leaderTxt}</div>`:''}
+    </div>
+    <button class="btn ${inst.status==='scheduled'?'amber':'ghost'} btn-sm" data-week-action="${inst.defId}" style="flex-shrink:0;">${btnLabel}</button>
+  </div>`;
+}
+
+/* ===== STANDINGS VIEW ===== */
+function renderStandings(){
+  const el=document.getElementById('view-standings');
+  const rows=STATE.players.map(p=>({player:p,st:STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0}}))
+    .sort((a,b)=>b.st.points-a.st.points);
+  const maxEarnings=Math.max(...rows.map(r=>r.st.earnings||0),1);
+
+  // FedEx rows
+  const fedexRows=STATE.players
+    .map(p=>({player:p,fx:STATE.fedexStandings[p.id]||{points:0,earnings:0}}))
+    .filter(r=>r.fx.points>0)
+    .sort((a,b)=>b.fx.points-a.fx.points);
+
+  // Salary cap rows
+  const salaryRows=STATE.players.map(p=>{
+    const cap=p.salaryCap||null;
+    const spent=(STATE.standings[p.id]||{}).earnings||0;
+    return{player:p,cap,spent};
+  }).filter(r=>r.cap);
+
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>Tour Standings</h2></div>
+    ${STATE.history.length?`<button class="btn ghost btn-sm" id="view-history-btn">Past Seasons (${STATE.history.length})</button>`:''}
+  </div>
+  ${rows.length===0||rows.every(r=>r.st.points===0)?`<div class="empty-state"><h3>No standings yet</h3><p>Points appear once a tournament finishes.</p></div>`:`
+  <div class="card" style="overflow:hidden;margin-bottom:20px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead><tr style="background:var(--turf-900);color:var(--paper-50);">
+        <th style="${thStyle}width:44px;">Rank</th>
+        <th style="${thStyle}text-align:left;">Player</th>
+        <th style="${thStyle}">Events</th>
+        <th style="${thStyle}">Wins</th>
+        <th style="${thStyle}">Points</th>
+        <th style="${thStyle}">Earnings</th>
+      </tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--line);${i===0?'background:rgba(217,161,59,0.1);':''}">
+        <td style="${tdStyle}" class="num">${i+1}</td>
+        <td style="${tdStyle}text-align:left;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="width:24px;height:24px;border-radius:50%;background:${avatarColor(r.player.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(r.player.name)}</span>
+            <button class="btn ghost btn-sm" style="padding:2px 6px;" data-view-profile="${r.player.id}">${flagEmoji(r.player.country)} ${escapeHTML(r.player.name)}</button>
+          </div>
+        </td>
+        <td style="${tdStyle}" class="num">${r.st.events||0}</td>
+        <td style="${tdStyle}" class="num">${r.st.wins||0}</td>
+        <td style="${tdStyle}" class="num" style="font-size:16px;">${(r.st.points||0).toLocaleString()}</td>
+        <td style="${tdStyle}">
+          <div class="num" style="font-size:13px;color:var(--turf-700);">${formatMoney(r.st.earnings||0)}</div>
+          <div class="earnings-bar"><div class="earnings-bar-fill" style="width:${Math.round((r.st.earnings||0)/maxEarnings*100)}%"></div></div>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>
+  </div>`}
+  ${fedexRows.length?`
+  <div style="margin-bottom:20px;">
+    <div class="section-head" style="margin-top:8px;">
+      <div><span class="eyebrow">Playoffs</span><h2>FedEx Cup Points</h2></div>
+      <span style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">Points from playoff events only — not counted in Tour Standings</span>
+    </div>
+    <div class="card" style="overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--flag-red);color:#fff;">
+          <th style="${thStyle}width:44px;">Rank</th>
+          <th style="${thStyle}text-align:left;">Player</th>
+          <th style="${thStyle}">FedEx Pts</th>
+          <th style="${thStyle}">Playoff Earnings</th>
+        </tr></thead>
+        <tbody>${fedexRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--line);${i===0?'background:rgba(168,54,42,0.07);':''}">
+          <td style="${tdStyle}" class="num">${i+1}</td>
+          <td style="${tdStyle}text-align:left;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="width:24px;height:24px;border-radius:50%;background:${avatarColor(r.player.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(r.player.name)}</span>
+              <button class="btn ghost btn-sm" style="padding:2px 6px;" data-view-profile="${r.player.id}">${flagEmoji(r.player.country)} ${escapeHTML(r.player.name)}</button>
+            </div>
+          </td>
+          <td style="${tdStyle}" class="num" style="font-size:16px;color:var(--flag-red);">${r.fx.points.toLocaleString()}</td>
+          <td style="${tdStyle}" class="num" style="color:var(--turf-700);">${formatMoney(r.fx.earnings)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>
+  </div>`:''}
+  ${salaryRows.length?`
+  <div style="margin-bottom:20px;">
+    <div class="section-head" style="margin-top:8px;">
+      <div><span class="eyebrow">Contracts</span><h2>Salary Caps</h2></div>
+      <span style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">Updated at season end based on rating &amp; performance</span>
+    </div>
+    <div class="card" style="overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--turf-800);color:var(--paper-50);">
+          <th style="${thStyle}text-align:left;">Player</th>
+          <th style="${thStyle}">Cap</th>
+          <th style="${thStyle}">Season Earnings</th>
+          <th style="${thStyle}">Status</th>
+        </tr></thead>
+        <tbody>${salaryRows.map((r,i)=>{
+          const over=r.spent>r.cap;
+          return`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.4)':''}">
+            <td style="${tdStyle}text-align:left;"><button class="btn ghost btn-sm" style="padding:2px 6px;" data-view-profile="${r.player.id}">${flagEmoji(r.player.country)} ${escapeHTML(r.player.name)}</button></td>
+            <td style="${tdStyle}" class="num">${formatMoney(r.cap)}</td>
+            <td style="${tdStyle}" class="num" style="color:${over?'var(--flag-red)':'var(--turf-700)'};">${formatMoney(r.spent)}</td>
+            <td style="${tdStyle}"><span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;padding:2px 8px;border-radius:10px;background:${over?'rgba(168,54,42,0.12)':'rgba(63,122,77,0.12)'};color:${over?'var(--flag-red)':'var(--turf-700)'};">${over?'OVER CAP':'UNDER CAP'}</span></td>
+          </tr>`;}).join('')}</tbody>
+      </table>
+    </div>
+  </div>`:''}`;
+  document.getElementById('view-history-btn')?.addEventListener('click',renderHistoryModal);
+  el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+}
+const thStyle="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-family:'Barlow Condensed',sans-serif;text-align:center;";
+const tdStyle="padding:10px 12px;text-align:center;font-size:13px;";
+
+function renderHistoryModal(){
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" id="hist-overlay">
+    <div class="modal" style="max-width:560px;"><div class="modal-pad">
+      <h3>Past Seasons</h3>
+      <div class="modal-sub">Archived when season restarted.</div>
+      ${STATE.history.slice().reverse().map(h=>{
+        const ranked=Object.entries(h.standings||{}).map(([pid,st])=>({pid,pts:st.points||st||0})).sort((a,b)=>b.pts-a.pts).slice(0,5);
+        return`<div style="margin-bottom:16px;border:1px solid var(--line);border-radius:4px;padding:12px;">
+          <div style="font-family:'Oswald',sans-serif;font-size:15px;margin-bottom:6px;">Season ${h.seasonNumber}</div>
+          ${ranked.map(({pid,pts},i)=>{const pl=getPlayer(pid);return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${i+1}. ${pl?escapeHTML(pl.name):'Unknown'}</span><span class="num">${typeof pts==='number'?pts.toLocaleString():'—'} pts</span></div>`;}).join('')}
+        </div>`;}).join('')}
+      <div class="modal-actions"><button class="btn ghost" id="hist-close">Close</button></div>
+    </div></div>
+  </div>`;
+  document.getElementById('hist-close').addEventListener('click',closeModal);
+  document.getElementById('hist-overlay').addEventListener('click',e=>{if(e.target.id==='hist-overlay')closeModal();});
+}
+
+/* ===== FANTASY VIEW ===== */
+function renderFantasy(){
+  const el=document.getElementById('view-fantasy');
+  const f=STATE.fantasy;
+  if(STATE.players.length<4){
+    el.innerHTML=`<div class="section-head"><div><span class="eyebrow">Fantasy</span><h2>Fantasy Teams</h2></div></div><div class="empty-state"><h3>Add more players first</h3><p>You need at least 4 players on the roster to set up fantasy teams.</p></div>`;return;
+  }
+  if(!f.drafted){
+    renderFantasySetup(el);return;
+  }
+  renderFantasyStandings(el);
+}
+
+function renderFantasySetup(el){
+  const f=STATE.fantasy;
+  const numCaps=f.captains.length;
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>Fantasy Teams</h2></div>
+    ${f.captains.length>=2&&!f.drafted?`<button class="btn amber" id="start-draft-btn">Start Draft (${f.captains.length} teams)</button>`:''}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <div>
+      <div style="font-size:13px;color:var(--ink-500);margin-bottom:14px;">Set up 2–5 fantasy captains. Each will pick a team from the tour roster in a snake draft. Fantasy points are awarded based on their players' real tournament results.</div>
+      <div id="captain-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        ${f.captains.map((cap,i)=>`<div class="card" style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-left:4px solid ${cap.color.accent};">
+          <div style="width:32px;height:32px;border-radius:50%;background:${cap.color.primary};color:${cap.color.accent};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;">${i+1}</div>
+          <div style="flex:1;"><div style="font-family:'Oswald',sans-serif;font-size:14px;">${escapeHTML(cap.name)}</div><div style="font-size:11px;color:var(--ink-500);">${cap.color.name}</div></div>
+          <button class="btn ghost btn-sm" data-remove-cap="${cap.id}" style="color:var(--flag-red);">✕</button>
+        </div>`).join('')}
+      </div>
+      ${f.captains.length<5?`<div class="card" style="padding:14px;">
+        <label class="field-label" style="margin-top:0;">New Captain Name</label>
+        <input type="text" id="cap-name-input" placeholder="e.g. Team Alpha" maxlength="30">
+        <button class="btn amber" style="width:100%;margin-top:10px;" id="add-captain-btn">Add Captain</button>
+      </div>`:`<div style="font-size:12px;color:var(--ink-500);text-align:center;padding:10px;">Maximum 5 teams reached.</div>`}
+    </div>
+    <div>
+      <div style="font-family:'Oswald',sans-serif;font-size:16px;margin-bottom:8px;color:var(--turf-900);">How Fantasy Works</div>
+      <div style="font-size:12px;color:var(--ink-700);line-height:1.7;">
+        <b>Draft:</b> Captains take turns picking players (snake order).<br>
+        <b>Points per tournament:</b><br>
+        Win: +${FANTASY_PTS.win} · Top 5: +${FANTASY_PTS.top5} · Top 10: +${FANTASY_PTS.top10}<br>
+        Top 20: +${FANTASY_PTS.top20} · Made Cut: +${FANTASY_PTS.madeCut}<br>
+        Eagle: +${FANTASY_PTS.eagle} · Birdie: +${FANTASY_PTS.birdie} · Bogey: ${FANTASY_PTS.bogey} · D.Bogey+: ${FANTASY_PTS.doublePlus}<br>
+        <b>Team Event:</b> Teams get bonus pts (50/30/20/10/5) for combined score finish.<br>
+        <b>Standings reset</b> at the start of each new season.
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('add-captain-btn')?.addEventListener('click',()=>{
+    const name=document.getElementById('cap-name-input').value.trim();
+    if(!name){showToast('Enter a captain name.',true);return;}
+    if(f.captains.length>=5){showToast('Max 5 captains.',true);return;}
+    const colorDef=TEAM_COLORS[f.captains.length];
+    f.captains.push({id:uid('cap'),name,color:colorDef});saveState();renderFantasy();
+  });
+  document.getElementById('start-draft-btn')?.addEventListener('click',()=>openDraftModal());
+  el.querySelectorAll('[data-remove-cap]').forEach(b=>b.addEventListener('click',()=>{
+    f.captains=f.captains.filter(c=>c.id!==b.dataset.removeCap);saveState();renderFantasy();
+  }));
+}
+
+function openDraftModal(){
+  const f=STATE.fantasy;const playersPool=STATE.players.slice().sort((a,b)=>b.overall-a.overall);
+  // Build snake draft order
+  const order=[];const rounds=Math.floor(playersPool.length/f.captains.length);
+  for(let r=0;r<rounds;r++){
+    const caps=r%2===0?f.captains.slice():f.captains.slice().reverse();
+    caps.forEach(c=>order.push(c.id));
+  }
+  // Initialize teams
+  f.captains.forEach(cap=>{f.teams[cap.id]={name:cap.color.name+' ('+cap.name+')',playerIds:[]};});
+  let pickIdx=0;const assigned=new Set();
+  const root=document.getElementById('modal-root');
+
+  function renderDraftUI(){
+    const currentCapId=order[pickIdx];const currentCap=f.captains.find(c=>c.id===currentCapId);
+    const available=playersPool.filter(p=>!assigned.has(p.id));
+    const isDone=pickIdx>=order.length||available.length===0;
+    if(isDone){
+      f.drafted=true;saveState();closeModal();renderFantasy();
+      showToast('Draft complete! Fantasy standings are live.');return;
+    }
+    root.innerHTML=`<div class="modal-overlay" id="draft-overlay">
+      <div class="modal" style="max-width:640px;">
+        <div class="modal-pad">
+          <h3>Fantasy Draft</h3>
+          <div class="modal-sub">Pick ${pickIdx+1} of ${order.length} · Snake draft · Best player available</div>
+          <div style="padding:10px 14px;border-radius:4px;border-left:4px solid ${currentCap.color.accent};background:${currentCap.color.light};margin-bottom:14px;">
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;text-transform:uppercase;color:${currentCap.color.primary};letter-spacing:0.05em;">Now picking</div>
+            <div style="font-family:'Oswald',sans-serif;font-size:18px;color:${currentCap.color.primary};">${escapeHTML(currentCap.name)}</div>
+          </div>
+          <div style="display:flex;gap:14px;">
+            <div style="flex:1;">
+              <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);margin-bottom:6px;">Available (${available.length})</div>
+              <div style="max-height:320px;overflow-y:auto;" class="scrollbar-thin">
+                ${available.map(p=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:3px;cursor:pointer;hover:background:var(--sand-200);" class="draft-pick-row" data-pick-id="${p.id}">
+                  <span style="width:22px;height:22px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+                  <span style="flex:1;font-size:13px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</span>
+                  <span class="num" style="font-size:13px;color:var(--turf-700);">${p.overall}</span>
+                  <button class="btn amber btn-sm" data-pick-id="${p.id}">Pick</button>
+                </div>`).join('')}
+              </div>
+            </div>
+            <div style="width:160px;">
+              <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);margin-bottom:6px;">Teams</div>
+              ${f.captains.map(cap=>`<div style="margin-bottom:8px;">
+                <div style="font-size:10px;font-weight:700;color:${cap.color.primary};font-family:'Barlow Condensed',sans-serif;">${escapeHTML(cap.name)}</div>
+                ${(f.teams[cap.id]?.playerIds||[]).map(pid=>{const pp=getPlayer(pid);return pp?`<div style="font-size:10px;padding:1px 0;color:var(--ink-700);">· ${pp.name}</div>`:''}).join('')}
+                ${(f.teams[cap.id]?.playerIds||[]).length===0?`<div style="font-size:10px;color:var(--ink-500);font-style:italic;">No picks yet</div>`:''}
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    root.querySelectorAll('[data-pick-id]').forEach(btn=>{
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation(); // Stops the double-click bubbling bug
+        const pid=btn.dataset.pickId;
+        if(!pid || assigned.has(pid)) return; // Safety check
+        f.teams[currentCapId].playerIds.push(pid);
+        assigned.add(pid);
+        pickIdx++;
+        renderDraftUI();
+      });
+    });
+  }
+  renderDraftUI();
+}
+
+function renderFantasyStandings(el){
+  const f=STATE.fantasy;
+  const rows=f.captains.map(cap=>({cap,st:f.standings[cap.id]||{pts:0,breakdown:[]}})).sort((a,b)=>b.st.pts-a.st.pts);
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>Fantasy Standings</h2></div>
+    <button class="btn danger btn-sm" id="reset-fantasy-btn">Reset Draft</button>
+  </div>
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start;">
+    <div>
+      <div class="card" style="overflow:hidden;margin-bottom:14px;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:var(--board-black);color:var(--paper-50);">
+            <th style="${thStyle}width:44px;">Rank</th>
+            <th style="${thStyle}text-align:left;">Captain</th>
+            <th style="${thStyle}">Players</th>
+            <th style="${thStyle}">Fantasy Pts</th>
+          </tr></thead>
+          <tbody>${rows.map((r,i)=>`<tr style="border-bottom:1px solid var(--line);${i===0?'background:rgba(217,161,59,0.08);':''}" data-expand-team="${r.cap.id}">
+            <td style="${tdStyle}" class="num">${i+1}</td>
+            <td style="${tdStyle}text-align:left;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="width:10px;height:10px;border-radius:50%;background:${r.cap.color.accent};flex-shrink:0;"></span>
+                <div>
+                  <div style="font-size:13px;font-weight:600;">${escapeHTML(r.cap.name)}</div>
+                  <div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${r.cap.color.name}</div>
+                </div>
+              </div>
+            </td>
+            <td style="${tdStyle}" class="num">${f.teams[r.cap.id]?.playerIds.length||0}</td>
+            <td style="${tdStyle}" class="num" style="font-size:18px;color:${r.cap.color.primary};">${r.st.pts.toLocaleString()}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+      </div>
+      ${Object.keys(f.teamEventResults||{}).length?teamEventResultsHTML():''}
+    </div>
+    <div id="fantasy-team-detail">${fantasyTeamDetailHTML(rows[0]?.cap.id)}</div>
+  </div>`;
+  document.getElementById('reset-fantasy-btn')?.addEventListener('click',()=>{
+    if(confirm('Reset the fantasy draft? All fantasy points and teams will be cleared for this season.')){
+      STATE.fantasy={drafted:false,captains:f.captains,teams:{},standings:{},teamEventResults:{}};
+      saveState();renderFantasy();
+    }
+  });
+  el.querySelectorAll('[data-expand-team]').forEach(row=>{
+    row.style.cursor='pointer';
+    row.addEventListener('click',()=>{document.getElementById('fantasy-team-detail').innerHTML=fantasyTeamDetailHTML(row.dataset.expandTeam);});
+  });
+}
+
+function fantasyTeamDetailHTML(capId){
+  if(!capId)return'';
+  const f=STATE.fantasy;const cap=f.captains.find(c=>c.id===capId);if(!cap)return'';
+  const team=f.teams[capId];const st=f.standings[capId]||{pts:0,breakdown:[]};
+  return`<div class="card" style="padding:16px;border-top:4px solid ${cap.color.accent};">
+    <div style="font-family:'Oswald',sans-serif;font-size:17px;color:${cap.color.primary};margin-bottom:12px;">${escapeHTML(cap.name)}'s Roster</div>
+    ${(team?.playerIds||[]).map(pid=>{
+      const p=getPlayer(pid);if(!p)return'';
+      const pSt=STATE.standings[pid]||{};
+      return`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);">
+        <span style="width:26px;height:26px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+        <div style="flex:1;"><div style="font-size:13px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</div><div style="font-size:10px;color:var(--ink-500);">OVR ${p.overall}</div></div>
+        <div style="text-align:right;"><div class="num" style="font-size:12px;">${(pSt.wins||0)} W</div><div style="font-size:10px;color:var(--ink-500);">${formatMoney(pSt.earnings||0)}</div></div>
+      </div>`;
+    }).join('')}
+    <div style="margin-top:12px;border-top:2px solid var(--line);padding-top:10px;">
+      <div style="font-size:11px;text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;color:var(--ink-500);margin-bottom:6px;">Breakdown by Event</div>
+      ${(st.breakdown||[]).slice().reverse().map(b=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${escapeHTML(b.trnName)}</span><span class="num" style="color:${b.pts>0?'var(--turf-700)':b.pts<0?'var(--flag-red)':'var(--ink-500)'};">${b.pts>0?'+':''}${b.pts}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function teamEventResultsHTML(){
+  const f=STATE.fantasy;
+  const events=Object.entries(f.teamEventResults||{});if(!events.length)return'';
+  return`<div class="card" style="padding:14px;">
+    <div style="font-family:'Oswald',sans-serif;font-size:14px;margin-bottom:10px;color:var(--turf-900);">🏆 Team Event Results</div>
+    ${events.map(([trnId,ranking])=>{
+      const def=getDef(trnId);
+      return`<div style="margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;margin-bottom:4px;">${def?.name||trnId}</div>
+        ${ranking.map((ts,i)=>{const cap=f.captains.find(c=>c.id===ts.capId);return`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12px;">
+          <span class="num" style="width:16px;color:var(--ink-500);">${i+1}</span>
+          <span style="width:8px;height:8px;border-radius:50%;background:${cap?.color.accent||'var(--line)'};flex-shrink:0;"></span>
+          <span style="flex:1;">${cap?escapeHTML(cap.name):'?'}</span>
+          <span class="num">${ts.total===0?'E':ts.total>0?'+'+ts.total:ts.total}</span>
+        </div>`;}).join('')}
+      </div>`;}).join('')}
+  </div>`;
+}
+
+/* ===== FIELD MODAL ===== */
+function openFieldModal(defId){
+  const def=getDef(defId);const inst=getInstance(defId);
+  if(def.playoff){
+    const top10=topPlayersByPoints(10);
+    if(top10.length<2){showToast('Need at least 2 players with points on the board to set the playoff field.',true);return;}
+    const ids=top10.map(p=>p.id);
+    startTournament(defId,ids);showToast(`${def.name} field set — Top 10 in points only.`);
+    STATE.activeTournamentId=defId;saveState();switchView('tournament');return;
+  }
+  const selected=new Set(inst.field);
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" id="field-modal-overlay">
+    <div class="modal" style="max-width:600px;"><div class="modal-pad">
+      <h3>${def.name}</h3>
+      <div class="modal-sub">${def.course} · ${def.location} · ${def.rounds===4?'4 rounds (cut after round 2)':'2 rounds'} · Pick the field${def.teamEvent?' · 🏆 Team Event':''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;" id="field-count-label">0 selected</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost btn-sm" id="field-select-all">All</button>
+          <button class="btn ghost btn-sm" id="field-select-none">Clear</button>
+        </div>
+      </div>
+      <div id="field-player-list" style="max-height:320px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:6px;" class="scrollbar-thin">
+        ${STATE.players.map(p=>`<label style="display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:3px;cursor:pointer;">
+          <input type="checkbox" data-pid="${p.id}" ${selected.has(p.id)?'checked':''} style="width:16px;height:16px;accent-color:var(--turf-600);">
+          <span style="width:26px;height:26px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+          <span style="flex:1;font-size:13px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</span>
+          <span class="num" style="font-size:13px;color:var(--turf-700);">${p.overall}</span>
+        </label>`).join('')}
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="field-cancel">Cancel</button>
+        <button class="btn amber" id="field-start">Tee Off</button>
+      </div>
+    </div></div>
+  </div>`;
+  function updateCount(){const n=root.querySelectorAll('#field-player-list input:checked').length;document.getElementById('field-count-label').textContent=`${n} selected`;}
+  updateCount();
+  root.querySelectorAll('#field-player-list input').forEach(cb=>cb.addEventListener('change',updateCount));
+  document.getElementById('field-select-all').addEventListener('click',()=>{root.querySelectorAll('#field-player-list input').forEach(cb=>cb.checked=true);updateCount();});
+  document.getElementById('field-select-none').addEventListener('click',()=>{root.querySelectorAll('#field-player-list input').forEach(cb=>cb.checked=false);updateCount();});
+  document.getElementById('field-cancel').addEventListener('click',closeModal);
+  document.getElementById('field-modal-overlay').addEventListener('click',e=>{if(e.target.id==='field-modal-overlay')closeModal();});
+  document.getElementById('field-start').addEventListener('click',()=>{
+    const ids=Array.from(root.querySelectorAll('#field-player-list input:checked')).map(cb=>cb.dataset.pid);
+    if(ids.length<2){showToast('Pick at least 2 players.',true);return;}
+    startTournament(defId,ids);closeModal();showToast(`${def.name} is underway!`);
+    STATE.activeTournamentId=defId;saveState();switchView('tournament');
+  });
+}
+
+/* ===== TOURNAMENT VIEW ===== */
+let PLAY_UI={defId:null,roundIdx:0,selectedPlayerId:null,holeIdx:0,holeState:null};
+
+function lieLabel(lie){return{tee:'Tee',fairway:'Fairway',rough:'Rough',sand:'Bunker',recovery:'Trouble',green:'Green',hole:'Holed'}[lie]||lie;}
+function lieColor(lie){return{tee:'var(--turf-700)',fairway:'var(--turf-600)',rough:'#8a6d2f',sand:'var(--board-amber)',recovery:'var(--flag-red)',green:'var(--turf-700)',hole:'var(--turf-900)'}[lie]||'var(--ink-700)';}
+
+function renderTournament(){
+  const el=document.getElementById('view-tournament');
+  const defId=STATE.activeTournamentId||PLAY_UI.defId;
+  if(!defId){el.innerHTML=`<div class="empty-state"><h3>No event in progress</h3><p>Set a field from Schedule to start playing.</p></div>`;return;}
+  const inst=getInstance(defId);const def=getDef(defId);
+  if(!inst||inst.status==='scheduled'){el.innerHTML=`<div class="empty-state"><h3>Event hasn't started</h3><p>Go to Schedule and set the field to tee off.</p></div>`;return;}
+  PLAY_UI.defId=defId;
+  let roundIdx=inst.rounds.findIndex((_,i)=>!isRoundComplete(inst,i));
+  if(roundIdx===-1)roundIdx=inst.rounds.length-1;
+  PLAY_UI.roundIdx=roundIdx;
+  applyCutIfNeeded(defId);
+  const finishedNow=finishTournamentIfDone(defId);
+  const lb=computeLeaderboard(defId);const isComplete=inst.status==='complete';
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">${def.major?'MAJOR · ':''}${def.teamEvent?'🏆 TEAM EVENT · ':''}${def.course} · ${def.location}</span><h2>${def.name}</h2></div>
+    <div style="text-align:right;">
+      <div class="eyebrow">${isComplete?'Final':`Round ${roundIdx+1} of ${inst.rounds.length}`}</div>
+      ${inst.cutPlayers?`<div style="font-size:11px;color:var(--ink-500);">${inst.cutPlayers.size} players made cut</div>`:''}
+    </div>
+  </div>
+  <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
+    <div id="play-panel"></div>
+    <div id="leaderboard-panel"></div>
+  </div>`;
+  renderLeaderboardPanel(defId,lb,isComplete);
+  if(isComplete)renderCompletePanel(defId,lb);
+  else renderPlayPanel(defId,roundIdx,lb);
+  if(finishedNow){const winner=getPlayer(inst.winnerId);showToast(`${def.name} final — ${winner?winner.name:'a player'} wins!`);}
+}
+
+function renderLeaderboardPanel(defId,lb,isComplete){
+  const def=getDef(defId);const totalPurse=def.purseM*1000000;const finishers=lb.filter(r=>!r.cut&&r.finished);
+  const panel=document.getElementById('leaderboard-panel');
+  panel.innerHTML=`<div class="card" style="padding:0;overflow:hidden;">
+    <div style="background:var(--board-black);color:var(--paper-50);padding:10px 16px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-family:'Oswald',sans-serif;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;">${isComplete?'Final Leaderboard':'Leaderboard'}</span>
+      <span style="font-size:11px;color:var(--sand-300);">Par ${def.holes.reduce((s,h)=>s+h.par,0)} · $${def.purseM}M</span>
+    </div>
+    <div style="max-height:560px;overflow-y:auto;" class="scrollbar-thin">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead><tr style="background:var(--turf-800);color:var(--sand-200);">
+          <th style="${lbTh}width:32px;">Pos</th>
+          <th style="${lbTh}text-align:left;">Player</th>
+          <th style="${lbTh}">Score</th>
+          <th style="${lbTh}">Thru</th>
+          ${isComplete?`<th style="${lbTh}">Prize</th>`:''}
+        </tr></thead>
+        <tbody>${lb.map(row=>{
+          const p=getPlayer(row.playerId);
+          const isCtrl=row.playerId===PLAY_UI.selectedPlayerId;
+          const toParTxt=row.holesPlayed===0?'—':row.toPar===0?'E':row.toPar>0?'+'+row.toPar:row.toPar;
+          const toParColor=row.holesPlayed===0?'var(--ink-500)':row.toPar<0?'var(--flag-red)':row.toPar>0?'var(--ink-700)':'var(--ink-900)';
+          const thruTxt=row.cut?'CUT':row.finished?'F':(row.thru||0);
+          const prize=isComplete&&!row.cut&&row.position?prizeForPosition(row.position,def.purseM,finishers.length):null;
+          return`<tr style="border-bottom:1px solid var(--line);${isCtrl?'background:rgba(217,161,59,0.15);':''}${row.cut?'opacity:0.55;':''}">
+            <td style="${lbTd}" class="num">${row.position||'—'}</td>
+            <td style="${lbTd}text-align:left;">
+              <div style="display:flex;align-items:center;gap:7px;">
+                <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+                <span style="font-size:12px;">${escapeHTML(p.name)}</span>
+              </div>
+            </td>
+            <td style="${lbTd}" class="num" style="color:${toParColor};">${toParTxt}</td>
+            <td style="${lbTd}" class="num" style="font-size:12px;color:var(--ink-500);">${thruTxt}</td>
+            ${isComplete?`<td style="${lbTd}"><span style="font-size:11px;color:var(--turf-700);font-family:'Barlow Condensed',sans-serif;font-weight:700;">${prize?formatMoney(prize):'—'}</span></td>`:''}
+          </tr>`;}).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+const lbTh="padding:7px 8px;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;font-family:'Barlow Condensed',sans-serif;text-align:center;";
+const lbTd="padding:7px 8px;text-align:center;";
+
+function renderCompletePanel(defId,lb){
+  const def=getDef(defId);const inst=getInstance(defId);const winner=getPlayer(inst.winnerId);
+  const prize1=prizeForPosition(1,def.purseM,lb.filter(r=>!r.cut).length);
+  const panel=document.getElementById('play-panel');
+  panel.innerHTML=`<div class="card" style="padding:24px;text-align:center;">
+    <div class="eyebrow" style="color:var(--turf-600);">Champion</div>
+    <div style="width:64px;height:64px;border-radius:50%;background:${avatarColor(winner?.name||'?')};color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;margin:10px auto;">${winner?initialsOf(winner.name):'?'}</div>
+    <h2 style="font-size:26px;margin-bottom:4px;">${winner?escapeHTML(winner.name):'—'}</h2>
+    <div style="font-size:14px;color:var(--ink-500);margin-bottom:18px;">wins ${def.name}${def.major?' — a Major':''}</div>
+    <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:18px;">
+      ${[['Score',lb[0]?(lb[0].toPar===0?'E':lb[0].toPar>0?'+'+lb[0].toPar:lb[0].toPar):'—'],['Strokes',lb[0]?lb[0].strokes:'—'],['Prize',formatMoney(prize1)],['Tour Points',pointsForPosition(1,def.major)]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px 16px;border-radius:4px;"><div class="eyebrow" style="margin-bottom:2px;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
+    </div>
+    ${def.teamEvent&&STATE.fantasy.drafted?teamEventResultsHTML():''}
+    <button class="btn ghost" id="back-to-schedule-btn">Back to Schedule</button>
+  </div>`;
+  document.getElementById('back-to-schedule-btn').addEventListener('click',()=>switchView('schedule'));
+}
+
+/* ===== PLAY PANEL ===== */
+function activePlayersForRound(inst,roundIdx){
+  return inst.field.filter(pid=>{
+    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return false;
+    return inst.rounds[roundIdx].scores[pid].some(v=>v==null);
+  });
+}
+function nextOpenHoleIdx(inst,roundIdx,pid){const arr=inst.rounds[roundIdx].scores[pid];for(let i=0;i<18;i++)if(arr[i]==null)return i;return -1;}
+
+function renderPlayPanel(defId,roundIdx,lb){
+  const inst=getInstance(defId);const def=getDef(defId);const panel=document.getElementById('play-panel');
+  const pending=activePlayersForRound(inst,roundIdx);
+  if(pending.length===0){
+    panel.innerHTML=`<div class="card" style="padding:24px;text-align:center;"><h3>Round ${roundIdx+1} complete</h3><p style="font-size:13px;color:var(--ink-500);margin-top:6px;">All players done. Move to the next round.</p><button class="btn amber" id="advance-round-btn" style="margin-top:14px;">Continue to Round ${roundIdx+2}</button></div>`;
+    document.getElementById('advance-round-btn')?.addEventListener('click',renderTournament);return;
+  }
+  if(!pending.includes(PLAY_UI.selectedPlayerId)){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
+
+  // Build bulk simulate controls
+  const currentHoleIdx=PLAY_UI.selectedPlayerId?PLAY_UI.holeIdx:null;
+  panel.innerHTML=`<div class="card" style="padding:16px;margin-bottom:14px;">
+    <div class="eyebrow" style="margin-bottom:8px;">Round ${roundIdx+1} · ${pending.length} players still on course</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      ${pending.map(pid=>{
+        const p=getPlayer(pid);const holeIdx=nextOpenHoleIdx(inst,roundIdx,pid);const active=pid===PLAY_UI.selectedPlayerId;
+        return`<button class="player-chip" data-select-player="${pid}" style="display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:20px;border:1px solid ${active?'var(--turf-700)':'var(--line)'};background:${active?'var(--turf-700)':'#fff'};color:${active?'#fff':'var(--ink-900)'};font-size:12px;transition:background .15s;">
+          <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+          ${escapeHTML(p.name)} <span style="opacity:0.7;">· H${holeIdx+1}</span>
+        </button>`;}).join('')}
+    </div>
+    <div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Simulate:</span>
+      <button class="btn ghost btn-sm" id="sim-all-hole-btn" title="Simulate current hole for all pending players">All players · next hole</button>
+      <button class="btn ghost btn-sm" id="sim-selected-hole-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} title="Simulate next hole for selected player only">Selected player · hole</button>
+      <button class="btn ghost btn-sm" id="sim-all-round-btn" style="border-color:var(--board-amber);color:#7a5a0a;">All players · full round</button>
+      <button class="btn ghost btn-sm" id="sim-selected-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;">Selected · full round</button>
+    </div>
+  </div>
+  <div id="hole-control"></div>`;
+
+  panel.querySelectorAll('[data-select-player]').forEach(btn=>{
+    btn.addEventListener('click',()=>selectPlayerForPlay(defId,roundIdx,btn.dataset.selectPlayer));
+  });
+
+  // Bulk sim: next hole for all pending players
+  document.getElementById('sim-all-hole-btn').addEventListener('click',()=>{
+    const pendingNow=activePlayersForRound(inst,roundIdx);
+    // find the next unplayed hole — use the minimum open hole across all pending players
+    const holes=pendingNow.map(pid=>nextOpenHoleIdx(inst,roundIdx,pid)).filter(h=>h>=0);
+    const minHole=Math.min(...holes);
+    const toSim=pendingNow.filter(pid=>nextOpenHoleIdx(inst,roundIdx,pid)===minHole);
+    simulateHoleForPlayers(defId,roundIdx,minHole,toSim);
+    showToast(`Simulated hole ${minHole+1} for ${toSim.length} players.`);
+    if(PLAY_UI.selectedPlayerId&&inst.rounds[roundIdx].scores[PLAY_UI.selectedPlayerId][PLAY_UI.holeIdx]!=null){
+      const next=nextOpenHoleIdx(inst,roundIdx,PLAY_UI.selectedPlayerId);
+      if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
+      else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+    }
+    renderTournament();
+  });
+
+  // Sim: next hole for selected player only
+  document.getElementById('sim-selected-hole-btn').addEventListener('click',()=>{
+    if(!PLAY_UI.selectedPlayerId)return;
+    const pid=PLAY_UI.selectedPlayerId;const hIdx=nextOpenHoleIdx(inst,roundIdx,pid);
+    if(hIdx===-1)return;
+    simulateHoleForPlayers(defId,roundIdx,hIdx,[pid]);
+    const next=nextOpenHoleIdx(inst,roundIdx,pid);
+    if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
+    else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+    showToast(`Simulated hole ${hIdx+1} for ${getPlayer(pid).name}.`);
+    renderTournament();
+  });
+
+  // Sim: full round for all
+  document.getElementById('sim-all-round-btn').addEventListener('click',()=>{
+    const pendingNow=activePlayersForRound(inst,roundIdx);
+    simulateRoundForPlayers(defId,roundIdx,pendingNow);
+    PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;
+    showToast(`Simulated full round ${roundIdx+1} for all ${pendingNow.length} players.`);
+    renderTournament();
+  });
+
+  // Sim: full round for selected
+  document.getElementById('sim-selected-btn').addEventListener('click',()=>{
+    if(!PLAY_UI.selectedPlayerId)return;
+    const pid=PLAY_UI.selectedPlayerId;
+    simulateRoundForPlayers(defId,roundIdx,[pid]);
+    showToast(`Simulated full round for ${getPlayer(pid).name}.`);
+    PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;
+    renderTournament();
+  });
+
+  if(PLAY_UI.selectedPlayerId)renderHoleControl(defId,roundIdx,PLAY_UI.selectedPlayerId);
+  else document.getElementById('hole-control').innerHTML=`<div class="empty-state" style="padding:30px 20px;"><p>Pick a player above to step up to the tee — or use simulate buttons for quick results.</p></div>`;
+}
+
+function selectPlayerForPlay(defId,roundIdx,pid){
+  const inst=getInstance(defId);const holeIdx=nextOpenHoleIdx(inst,roundIdx,pid);
+  PLAY_UI.selectedPlayerId=pid;PLAY_UI.holeIdx=holeIdx;
+  PLAY_UI.holeState=newHoleState(getDef(defId).holes[holeIdx]);
+  renderTournament();
+}
+
+function renderHoleControl(defId,roundIdx,pid){
+  const inst=getInstance(defId);const def=getDef(defId);const player=getPlayer(pid);
+  const holeIdx=PLAY_UI.holeIdx;const holeDef=def.holes[holeIdx];const hs=PLAY_UI.holeState;
+  const wrap=document.getElementById('hole-control');
+  const scoreSoFar=inst.rounds[roundIdx].scores[pid];
+  const roundParSoFar=def.holes.slice(0,holeIdx).reduce((s,h)=>s+h.par,0);
+  const strokesSoFar=scoreSoFar.slice(0,holeIdx).reduce((s,v)=>s+(v||0),0);
+  const toParSoFar=strokesSoFar-roundParSoFar;
+  wrap.innerHTML=`<div class="card" style="padding:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+      <div>
+        <div class="eyebrow">${escapeHTML(player.name)} · ${lieLabel(hs.lie)!=='Holed'?lieLabel(hs.lie)+' · ':''}Shot ${hs.strokes+1}</div>
+        <h3 style="font-size:20px;">Hole ${holeIdx+1} · Par ${holeDef.par} · ${holeDef.yards}y</h3>
+      </div>
+      <div style="text-align:right;">
+        <div class="eyebrow">Thru ${holeIdx}</div>
+        <div class="num" style="font-size:20px;color:${toParSoFar<0?'var(--flag-red)':'var(--ink-900)'};">${holeIdx===0?'—':(toParSoFar===0?'E':toParSoFar>0?'+'+toParSoFar:toParSoFar)}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;display:flex;align-items:center;gap:18px;background:var(--sand-200);border-radius:4px;padding:14px 18px;">
+      <div style="flex:1;"><div class="eyebrow" style="margin-bottom:3px;">Lie</div><div style="font-family:'Oswald',sans-serif;font-size:17px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div></div>
+      <div style="flex:1;text-align:center;"><div class="eyebrow" style="margin-bottom:3px;">${hs.lie==='green'?'To Hole':'To Pin'}</div><div class="num" style="font-size:22px;">${hs.lie==='green'?(hs.puttDistanceFt+' ft'):(Math.round(hs.remaining)+' y')}</div></div>
+      <div style="flex:1;text-align:right;"><div class="eyebrow" style="margin-bottom:3px;">Strokes</div><div class="num" style="font-size:22px;">${hs.strokes}</div></div>
+    </div>
+    <div id="shot-log" style="margin-top:14px;max-height:130px;overflow-y:auto;display:flex;flex-direction:column-reverse;gap:6px;" class="scrollbar-thin">
+      ${hs.log.slice().reverse().map((l,i)=>`<div style="font-size:13px;padding:7px 10px;background:${i===0?'rgba(63,122,77,0.1)':'transparent'};border-radius:3px;border-left:3px solid ${i===0?'var(--turf-600)':'var(--line)'};">${escapeHTML(l)}</div>`).join('')}
+    </div>
+    <div style="margin-top:16px;display:flex;gap:10px;">
+      <button class="btn amber" id="hit-shot-btn" style="flex:1;padding:14px;font-size:15px;" ${hs.holedOut?'disabled':''}>
+        ${hs.strokes===0?(hs.lie==='tee'?'Tee Off':'Hit Shot'):'Hit Next Shot'}
+      </button>
+    </div>
+    ${hs.holedOut?`<button class="btn" id="confirm-hole-btn" style="width:100%;margin-top:10px;padding:13px;">Confirm ${hs.strokes} · ${holeResultWord(hs.strokes,holeDef.par)} — Next</button>`:''}
+  </div>
+  <div class="card" style="margin-top:14px;padding:14px;">
+    <div class="eyebrow" style="margin-bottom:8px;">${escapeHTML(player.name)}'s Scorecard · Round ${roundIdx+1}</div>
+    ${scorecardHTML(def,scoreSoFar,holeIdx)}
+  </div>`;
+  document.getElementById('hit-shot-btn')?.addEventListener('click',()=>{playShot(hs,effectiveAttrs(player));renderHoleControl(defId,roundIdx,pid);});
+  document.getElementById('confirm-hole-btn')?.addEventListener('click',()=>{recordHoleScore(defId,roundIdx,pid,holeIdx,hs.strokes);advanceAfterHole(defId,roundIdx,pid);});
+}
+
+function holeResultWord(strokes,par){const d=strokes-par;if(d<=-3)return'Albatross+';if(d===-2)return'Eagle';if(d===-1)return'Birdie';if(d===0)return'Par';if(d===1)return'Bogey';if(d===2)return'Double Bogey';return`+${d}`;}
+function advanceAfterHole(defId,roundIdx,pid){
+  const inst=getInstance(defId);const next=nextOpenHoleIdx(inst,roundIdx,pid);
+  if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;showToast(`${getPlayer(pid).name} signs for their round.`);}
+  else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(getDef(defId).holes[next]);}
+  renderTournament();
+}
+
+function scorecardHTML(def,scoreArr,currentHoleIdx){
+  const front=def.holes.slice(0,9),back=def.holes.slice(9,18);
+  function rowFor(holes,offset){
+    return`<tr><td style="${scTdLabel}">Hole</td>${holes.map((h,i)=>`<td style="${scTd}${offset+i===currentHoleIdx?'background:rgba(217,161,59,0.18);':''}">${h.hole}</td>`).join('')}<td style="${scTdLabel}">${offset===0?'OUT':'IN'}</td></tr>
+    <tr><td style="${scTdLabel}">Par</td>${holes.map((h,i)=>`<td style="${scTd}color:var(--ink-500);${offset+i===currentHoleIdx?'background:rgba(217,161,59,0.1);':''}">${h.par}</td>`).join('')}<td style="${scTdLabel}">${holes.reduce((s,h)=>s+h.par,0)}</td></tr>
+    <tr><td style="${scTdLabel}">Score</td>${holes.map((h,i)=>{
+      const idx=offset+i;const v=scoreArr[idx];
+      if(v==null)return`<td style="${scTd}${idx===currentHoleIdx?'background:rgba(217,161,59,0.18);font-weight:700;':''}">${idx===currentHoleIdx?'•':'-'}</td>`;
+      const d=v-h.par;const shape=d<=-2?'eagle':d===-1?'birdie':d===0?'par':d===1?'bogey':'big';
+      const styles={eagle:'background:var(--turf-700);color:#fff;border-radius:50%;',birdie:'border:1.5px solid var(--turf-700);border-radius:50%;color:var(--turf-700);',par:'',bogey:'border:1.5px solid var(--ink-500);',big:'background:var(--flag-red);color:#fff;'};
+      return`<td style="${scTd}"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-weight:700;${styles[shape]}">${v}</span></td>`;
+    }).join('')}<td style="${scTdLabel}" class="num">${holes.reduce((s,h,i)=>s+(scoreArr[offset+i]||0),0)||''}</td></tr>`;
+  }
+  return`<div style="overflow-x:auto;" class="scrollbar-thin">
+    <table style="border-collapse:collapse;width:100%;font-size:12px;text-align:center;"><tbody>${rowFor(front,0)}</tbody></table>
+    <table style="border-collapse:collapse;width:100%;font-size:12px;text-align:center;margin-top:6px;"><tbody>${rowFor(back,9)}</tbody></table>
+  </div>`;
+}
+const scTd="padding:5px 3px;min-width:26px;border:1px solid var(--line);";
+const scTdLabel="padding:5px 6px;font-size:10px;text-transform:uppercase;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;white-space:nowrap;";
+
+/* ===== NAV ===== */
+const VIEWS=['schedule','roster','standings','fantasy','tournament'];
+function switchView(view){
+  VIEWS.forEach(v=>{document.getElementById('view-'+v).classList.toggle('active',v===view);});
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
+  renderCurrentView(view);
+}
+function renderCurrentView(view){
+  if(view==='schedule')renderSchedule();
+  else if(view==='roster')renderRoster();
+  else if(view==='standings')renderStandings();
+  else if(view==='fantasy')renderFantasy();
+  else if(view==='tournament')renderTournament();
+}
+function refreshTopbar(){
+  document.getElementById('season-label-top').textContent=`Season ${STATE.seasonNumber} · ${STATE.players.length} players`;
+  document.getElementById('tab-tournament').style.display=STATE.activeTournamentId?'':'none';
+  const rows=STATE.players.map(p=>({name:p.name,pts:(STATE.standings[p.id]||{}).points||0})).sort((a,b)=>b.pts-a.pts);
+  document.getElementById('points-leader-pill').textContent=rows.length&&rows[0].pts>0?`${rows[0].name} · ${rows[0].pts.toLocaleString()} pts`:'No points yet';
+}
+function wireNav(){
+  document.querySelectorAll('.nav-tab').forEach(tab=>tab.addEventListener('click',()=>switchView(tab.dataset.view)));
+  document.getElementById('restart-season-btn').addEventListener('click',openRestartConfirm);
+}
+function openRestartConfirm(){
+  const root=document.getElementById('modal-root');
+  root.innerHTML=`<div class="modal-overlay" id="restart-overlay">
+    <div class="modal" style="max-width:460px;border-top-color:var(--flag-red);"><div class="modal-pad">
+      <h3>Restart From Scratch?</h3>
+      <div class="modal-sub">This wipes everything — roster, career stats, standings, and fantasy teams — and starts a brand new tour at Season 1. If you just want to move on to next season and keep your players, use <b>Start Next Season</b> from the Schedule tab instead.</div>
+      <div class="modal-actions"><button class="btn ghost" id="restart-cancel">Cancel</button><button class="btn danger" id="restart-confirm">Wipe & Restart</button></div>
+    </div></div>
+  </div>`;
+  document.getElementById('restart-cancel').addEventListener('click',closeModal);
+  document.getElementById('restart-overlay').addEventListener('click',e=>{if(e.target.id==='restart-overlay')closeModal();});
+  document.getElementById('restart-confirm').addEventListener('click',()=>{restartSeason();closeModal();refreshTopbar();switchView('schedule');showToast(`Fresh tour — Season 1.`);});
+}
+async function init(){
+  document.getElementById('view-schedule').classList.add('active');
+  document.getElementById('view-schedule').innerHTML=`<div class="empty-state"><h3>Loading your tour…</h3><p>Connecting to the save server.</p></div>`;
+  STATE=await loadStateRemote();
+  ensureScheduleForSeason();wireNav();refreshTopbar();switchView('schedule');
+  if(USING_MEMORY_FALLBACK)showToast("Storage blocked in this browser — progress won't survive a reload.",true);
+  else if(USING_LOCAL_FALLBACK)showToast("Couldn't reach the save server — playing locally in this browser instead.",true);
+}
+document.addEventListener('DOMContentLoaded',init);
+})();
+</script>
+</body>
+</html>
