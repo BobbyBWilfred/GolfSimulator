@@ -578,85 +578,59 @@ function isRoundComplete(inst,roundIdx){
 
 function finishTournamentIfDone(defId){
   const inst=getInstance(defId);const def=getDef(defId);
-  if(inst.status==='complete')return false; // already scored — never award twice
+  if(inst.status==='complete')return false;
   const lastIdx=inst.rounds.length-1;if(!isRoundComplete(inst,lastIdx))return false;
   inst.status='complete';inst.completedAt=Date.now();
   const lb=computeLeaderboard(defId);
   const finishers=lb.filter(r=>!r.cut);
-  if(finishers.length)inst.winnerId=finishers[0].playerId;
   inst.leaderboardCache=lb;
 
-  // Field average toPar this week — used so "form" reflects play relative to
-  // the field, not just whether the course was generally easy or hard.
   const playedRows=lb.filter(r=>r.holesPlayed>0);
   const fieldAvgToPar=playedRows.length?playedRows.reduce((s,r)=>s+r.toPar,0)/playedRows.length:0;
+  inst._fieldAvgToPar=fieldAvgToPar; // stash for resolvePlayoffHoleIfComplete
 
-  // Award points + prize money
+  // ── Tie for 1st: go to playoff BEFORE awarding anything ──
+  if(finishers.length>=2&&finishers[0].toPar===finishers[1].toPar){
+    const tiedPids=finishers.filter(r=>r.toPar===finishers[0].toPar).map(r=>r.playerId);
+    inst.status='playoff_pending';
+    inst.tiedPids=tiedPids;
+    inst.playoffHole={
+      holeNum:1,scores:{},currentHole:1,
+      eliminated:[],remainingPids:tiedPids.slice(),done:false,winnerId:null,
+    };
+    tiedPids.forEach(pid=>inst.playoffHole.scores[pid]=[]);
+    if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+    saveState();return false; // nothing awarded yet — wait for playoff
+  }
+
+  // ── No tie: award everything now ──
+  if(finishers.length)inst.winnerId=finishers[0].playerId;
   finishers.forEach(row=>{
     const pts=pointsForPosition(row.position,def.major);
     const prize=prizeForPosition(row.position,def.purseM,finishers.length);
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     const st=STATE.standings[row.playerId];
-    // Playoff events: points go to FedEx Cup standings ONLY, not tour standings
     if(def.playoff){
       if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
       STATE.fedexStandings[row.playerId].points+=pts;
       STATE.fedexStandings[row.playerId].earnings+=prize;
-    } else {
-      st.points+=pts;
-    }
+    } else { st.points+=pts; }
     st.earnings+=prize;st.events++;
     if(row.position===1)st.wins++;
     st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
   });
-
-  // Record major champion in hall of fame
   if(def.major&&finishers.length){
-    const winner=finishers[0];
     if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
-    STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:winner.playerId,toPar:winner.toPar,strokes:winner.strokes});
+    STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:finishers[0].playerId,toPar:finishers[0].toPar,strokes:finishers[0].strokes});
   }
-
-  // Death hole: if top 2+ finishers are tied, DON'T auto-resolve.
-  // Mark as playoff_pending so the player can simulate it hole by hole.
-  if(finishers.length>=2&&finishers[0].toPar===finishers[1].toPar){
-    const tiedPids=finishers.filter(r=>r.toPar===finishers[0].toPar).map(r=>r.playerId);
-    inst.status='playoff_pending';
-    inst.tiedPids=tiedPids;
-    // Build a sudden-death par-4 playoff hole session
-    inst.playoffHole={
-      holeDef:{hole:'P',par:4,yards:430},
-      holeNum:1,
-      scores:{},   // pid -> strokes on each playoff hole (array)
-      currentHole:1,
-      eliminated:[], // pids knocked out
-      remainingPids:tiedPids.slice(),
-      done:false,
-      winnerId:null,
-    };
-    // Init score arrays
-    tiedPids.forEach(pid=>inst.playoffHole.scores[pid]=[]);
-    // Do NOT call generateTournamentNews yet — wait until playoff resolves
-    if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
-    saveState();return false; // not truly finished yet
-  }
-
-  // missed cut still gets event credit
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     STATE.standings[row.playerId].events++;
     STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
   });
-
-  // Fantasy scoring
   updateFantasyScores(defId,lb);
-
-  // World ranking update
   updateWorldRanking(defId,lb);
-
-  // Generate news storylines for this tournament
   generateTournamentNews(defId,lb,inst);
-
   if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
   saveState();return true;
 }
@@ -666,70 +640,102 @@ function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
   inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
 }
 
-// Called after all remaining tied players have finished a sudden-death playoff hole.
-// Returns true if the playoff is now resolved (a winner found), false if another hole needed.
 function resolvePlayoffHoleIfComplete(defId){
   const inst=getInstance(defId);
   const ph=inst.playoffHole;if(!ph||ph.done)return false;
   const holeNum=ph.currentHole;
-  // Check all remaining players have a score for this hole
   const allDone=ph.remainingPids.every(pid=>(ph.scores[pid]||[]).length>=holeNum);
   if(!allDone)return false;
-  // Find minimum score this hole among remaining
+
   const holeScores=ph.remainingPids.map(pid=>({pid,s:ph.scores[pid][holeNum-1]}));
   const minScore=Math.min(...holeScores.map(h=>h.s));
   const survivors=holeScores.filter(h=>h.s===minScore).map(h=>h.pid);
   const eliminated=holeScores.filter(h=>h.s>minScore).map(h=>h.pid);
   ph.eliminated.push(...eliminated);
-  if(survivors.length===1){
-    // We have a winner
-    ph.done=true;ph.winnerId=survivors[0];
-    const def=getDef(defId);const lb=inst.leaderboardCache||computeLeaderboard(defId);
-    const finishers=lb.filter(r=>!r.cut);
-    // Now actually finalise: credit wins only to the playoff winner
-    inst.winnerId=survivors[0];
-    inst.deathHoleTied=true;
-    inst.deathHoleWinner=survivors[0];
-    inst.deathHoleHolesPlayed=holeNum;
-    inst.status='complete';inst.completedAt=Date.now();
-    // Award wins — only the playoff winner gets win credit, all get earnings/events
-    const fieldAvgToPar=finishers.length?finishers.reduce((s,r)=>s+r.toPar,0)/finishers.length:0;
-    finishers.forEach(row=>{
-      const pts=pointsForPosition(row.position,def.major);
-      const prize=prizeForPosition(row.position,def.purseM,finishers.length);
-      if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
-      const st=STATE.standings[row.playerId];
-      if(def.playoff){
-        if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
-        STATE.fedexStandings[row.playerId].points+=pts;
-        STATE.fedexStandings[row.playerId].earnings+=prize;
-      } else { st.points+=pts; }
-      st.earnings+=prize;st.events++;
-      // Only the playoff winner gets the win
-      if(row.playerId===survivors[0]&&row.position===1)st.wins++;
-      st.history.push({trnId:def.id,trnName:def.name,pos:row.playerId===survivors[0]?1:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
-    });
-    if(def.major){
-      const winner=finishers.find(r=>r.playerId===survivors[0]);
-      if(winner){if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:survivors[0],toPar:winner.toPar,strokes:winner.strokes});}
-    }
-    lb.filter(r=>r.cut).forEach(row=>{
-      if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
-      STATE.standings[row.playerId].events++;
-      const fieldAvg=fieldAvgToPar;
-      STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvg});
-    });
-    updateFantasyScores(defId,lb);
-    updateWorldRanking(defId,lb);
-    generateTournamentNews(defId,lb,inst);
-    if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
-    saveState();return true;
-  } else {
-    // Still tied — need another hole
+
+  if(survivors.length>1){
+    // Still tied — another hole
     ph.remainingPids=survivors;
     ph.currentHole++;
     saveState();return false;
   }
+
+  // ── Winner found — award everything exactly once ──
+  ph.done=true;ph.winnerId=survivors[0];
+  const winnerId=survivors[0];
+
+  const def=getDef(defId);
+  const lb=inst.leaderboardCache||computeLeaderboard(defId);
+  const finishers=lb.filter(r=>!r.cut);
+  const fieldAvgToPar=inst._fieldAvgToPar??
+    (finishers.length?finishers.reduce((s,r)=>s+r.toPar,0)/finishers.length:0);
+
+  inst.winnerId=winnerId;
+  inst.deathHoleTied=true;
+  inst.deathHoleWinner=winnerId;
+  inst.deathHoleHolesPlayed=holeNum;
+  inst.status='complete';inst.completedAt=Date.now();
+
+  // Determine correct positions after the playoff:
+  // • Playoff winner → position 1 (sole winner, gets win credit)
+  // • All other tied players who were also T1 in regulation → position 2
+  // • Everyone else keeps their regular leaderboard position
+  const tiedPids=new Set(inst.tiedPids||[]);
+
+  finishers.forEach(row=>{
+    const isTied=tiedPids.has(row.playerId);
+    const isWinner=row.playerId===winnerId;
+    // Final position: winner=1, other tied players=2, rest unchanged
+    const finalPos=isWinner?1:(isTied?2:row.position);
+
+    const pts=pointsForPosition(finalPos,def.major);
+    const prize=prizeForPosition(finalPos,def.purseM,finishers.length);
+
+    if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+    const st=STATE.standings[row.playerId];
+
+    if(def.playoff){
+      if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
+      STATE.fedexStandings[row.playerId].points+=pts;
+      STATE.fedexStandings[row.playerId].earnings+=prize;
+    } else {
+      st.points+=pts;
+    }
+    st.earnings+=prize;
+    st.events++;
+    if(isWinner)st.wins++; // ONLY the playoff winner gets a win
+    st.history.push({
+      trnId:def.id,trnName:def.name,pos:finalPos,
+      pts:def.playoff?0:pts,prize,
+      toPar:row.toPar,strokes:row.strokes,
+      season:STATE.seasonNumber,
+      fieldRelToPar:row.toPar-fieldAvgToPar,
+      fedex:!!def.playoff,
+      playoffWin:isWinner,
+    });
+  });
+
+  // Major champion — only the playoff winner
+  if(def.major){
+    const winRow=finishers.find(r=>r.playerId===winnerId);
+    if(winRow){
+      if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
+      STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:winnerId,toPar:winRow.toPar,strokes:winRow.strokes});
+    }
+  }
+
+  // MC players — event credit only (no points, no wins)
+  lb.filter(r=>r.cut).forEach(row=>{
+    if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+    STATE.standings[row.playerId].events++;
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
+  });
+
+  updateFantasyScores(defId,lb);
+  updateWorldRanking(defId,lb);
+  generateTournamentNews(defId,lb,inst);
+  if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+  saveState();return true;
 }
 
 /* ===== FANTASY ===== */
