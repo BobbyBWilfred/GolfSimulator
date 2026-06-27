@@ -99,6 +99,7 @@ footer{text-align:center;padding:18px;font-size:11px;color:var(--ink-500);letter
       <button class="nav-tab" data-view="roster">Roster</button>
       <button class="nav-tab" data-view="standings">Tour Standings</button>
       <button class="nav-tab" data-view="fantasy">Fantasy</button>
+      <button class="nav-tab" data-view="news">📰 News</button>
       <button class="nav-tab" data-view="tournament" id="tab-tournament" style="display:none;">This Week</button>
     </nav>
     <div class="topbar-right">
@@ -111,6 +112,7 @@ footer{text-align:center;padding:18px;font-size:11px;color:var(--ink-500);letter
     <section class="view" id="view-roster"></section>
     <section class="view" id="view-standings"></section>
     <section class="view" id="view-fantasy"></section>
+    <section class="view" id="view-news"></section>
     <section class="view" id="view-tournament"></section>
   </main>
   <footer>Local simulation &middot; saved to your tour server (MongoDB)</footer>
@@ -247,6 +249,8 @@ function freshState(){
     activeTournamentId:null,
     fedexStandings:{},      // playerId -> {points, earnings} — playoff events only, not counted for tour standings
     majorChampions:{},      // trnId -> [{season, playerId, toPar, strokes}]
+    news:[],                // [{id,season,trnId,type,icon,headline,body,ts,clutch}]
+    awards:[],              // [{season,playerOfYear,fedexWinner,mostImproved}]
     fantasy:{
       drafted:false,        // whether draft has been done this season
       captains:[],          // array of {id,name,color} — up to 5
@@ -262,7 +266,7 @@ function normalizeState(p){
   p.players=p.players||[];
   p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
-  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};
+  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];
   if(!p.fantasy)p.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   return p;
 }
@@ -641,6 +645,9 @@ function finishTournamentIfDone(defId){
   // Fantasy scoring
   updateFantasyScores(defId,lb);
 
+  // Generate news storylines for this tournament
+  generateTournamentNews(defId,lb,inst);
+
   if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
   saveState();return true;
 }
@@ -979,7 +986,7 @@ function restartSeason(){
   const hasProgress=STATE.schedule.some(s=>s.status!=='scheduled')||Object.keys(STATE.standings).length>0;
   if(hasProgress)STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,fantasy:STATE.fantasy,archivedAt:Date.now()});
   STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
-  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};
+  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};STATE.news=[];STATE.awards=[];
   STATE.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   saveState();
 }
@@ -999,11 +1006,204 @@ function updateSalaryCaps(){
   });
 }
 
+/* ===== NEWS & STORYLINE ENGINE ===== */
+function newsId(){return'news_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+
+function pushNews(item){
+  if(!STATE.news)STATE.news=[];
+  STATE.news.unshift({id:newsId(),season:STATE.seasonNumber,ts:Date.now(),...item});
+  // Cap feed at 200 items
+  if(STATE.news.length>200)STATE.news.length=200;
+}
+
+// Called after finishTournamentIfDone — generates all tournament storylines + clutch moments
+function generateTournamentNews(defId,lb,inst){
+  const def=getDef(defId);
+  const finishers=lb.filter(r=>!r.cut&&r.holesPlayed>0);
+  if(!finishers.length)return;
+
+  const winner=getPlayer(inst.winnerId);
+  if(!winner)return;
+
+  const winnerSt=STATE.standings[inst.winnerId]||{};
+  const winnerRow=finishers[0];
+  const toParTxt=v=>v===0?'even par':v>0?`+${v}`:String(v);
+  const prize1=prizeForPosition(1,def.purseM,finishers.length);
+
+  // --- CLUTCH MOMENTS (individual hole feats logged as sub-items) ---
+  const clutchItems=[];
+
+  // Eagles
+  finishers.forEach(row=>{
+    const p=getPlayer(row.playerId);if(!p)return;
+    let eagles=0;
+    inst.rounds.forEach(rd=>{
+      const sc=rd.scores[row.playerId]||[];
+      sc.forEach((s,hi)=>{if(s!=null&&s-def.holes[hi].par<=-2)eagles++;});
+    });
+    if(eagles>0)clutchItems.push({icon:'🦅',text:`${p.name} made ${eagles===1?'an eagle':''+eagles+' eagles'} at ${def.name}`});
+  });
+
+  // Chip-ins (approximate: score of 1 on a par 3, or 2 on a par 4 from off-green — we detect score 2 under par)
+  finishers.forEach(row=>{
+    const p=getPlayer(row.playerId);if(!p)return;
+    let chipin=0;
+    inst.rounds.forEach(rd=>{
+      const sc=rd.scores[row.playerId]||[];
+      sc.forEach((s,hi)=>{if(s!=null&&s-def.holes[hi].par<=-2&&def.holes[hi].par===3)chipin++;});
+    });
+    if(chipin>0)clutchItems.push({icon:'🎯',text:`${p.name} chipped in ${chipin===1?'once':''+chipin+' times'} during ${def.name}`});
+  });
+
+  // Comeback: winner was outside top-5 after round 1 in a 4-round event
+  if(def.rounds===4&&inst.rounds[0]){
+    const r1lb=finishers.slice().sort((a,b)=>{
+      const sA=Object.values(inst.rounds[0].scores[a.playerId]||{}).reduce((s,v)=>s+(v||0),0);
+      const sB=Object.values(inst.rounds[0].scores[b.playerId]||{}).reduce((s,v)=>s+(v||0),0);
+      return sA-sB;
+    });
+    const winnerR1pos=r1lb.findIndex(r=>r.playerId===inst.winnerId);
+    if(winnerR1pos>=5)clutchItems.push({icon:'⚡',text:`${winner.name} came from outside the top-${winnerR1pos+1} after Round 1 to win ${def.name}`});
+  }
+
+  // Sudden death
+  if(inst.deathHoleTied){
+    clutchItems.push({icon:'💀',text:`${winner.name} won ${def.name} in a sudden-death playoff hole`});
+  }
+
+  // Wire-to-wire (led after every round — simplified: same winner as round 1 top)
+  if(def.rounds>=2&&inst.rounds[0]){
+    const r1scores={};finishers.forEach(row=>{r1scores[row.playerId]=Object.values(inst.rounds[0].scores[row.playerId]||{}).reduce((s,v)=>s+(v||0),0);});
+    const r1leader=Object.entries(r1scores).sort((a,b)=>a[1]-b[1])[0];
+    if(r1leader&&r1leader[0]===inst.winnerId)clutchItems.push({icon:'🔝',text:`${winner.name} led wire-to-wire at ${def.name}`});
+  }
+
+  // Record low score (best toPar we've seen in history)
+  const allPrevBest=STATE.news.filter(n=>n.type==='record').map(n=>n._toPar||999);
+  const prevBest=allPrevBest.length?Math.min(...allPrevBest):999;
+  if(winnerRow.toPar<prevBest){
+    clutchItems.push({icon:'📉',text:`${winner.name} set a new tour scoring record at ${toParTxt(winnerRow.toPar)} (${winnerRow.strokes} strokes) at ${def.name}`});
+    // Tag on the news item below
+  }
+
+  // --- MAIN HEADLINE STORY ---
+  const totalWins=(winnerSt.wins||0);
+  const prevWins=totalWins-1; // before this win was counted
+  let headline,body,type='result',icon='📰';
+
+  if(def.major){
+    icon='🏆';type='major';
+    if(prevWins===0){
+      headline=`${winner.name} claims first Major title at ${def.name}`;
+      body=`In a career-defining performance, ${winner.name} finished at ${toParTxt(winnerRow.toPar)} to lift the trophy at ${def.course}. The victory also marks their first tour win.`;
+    } else {
+      const majCount=(STATE.majorChampions[def.id]||[]).filter(c=>c.playerId===inst.winnerId).length;
+      headline=`${winner.name} wins ${def.name}${majCount>1?` for the ${['second','third','fourth','fifth'][majCount-2]||majCount+'th'} time`:''}`;
+      body=`${winner.name} shot ${toParTxt(winnerRow.toPar)} at ${def.course} to collect the ${formatMoney(prize1)} winner's cheque and add another Major to an impressive CV.`;
+    }
+  } else if(def.playoff){
+    icon='⛳';type='playoff';
+    headline=`${winner.name} takes ${def.name} FedEx Cup event`;
+    body=`${winner.name} finished at ${toParTxt(winnerRow.toPar)} at ${def.course} to top the field and bank ${formatMoney(prize1)} in FedEx Cup earnings. Points go to the separate FedEx standings.`;
+  } else if(def.teamEvent){
+    icon='🤝';type='team';
+    headline=`Team event thriller: ${winner.name} leads squad to ${def.name} victory`;
+    body=`${winner.name} was the star individual at ${def.course}, helping their fantasy team clinch the team event honours at ${def.name}.`;
+  } else if(totalWins===1){
+    icon='🌟';type='firstwin';
+    headline=`FIRST WIN: ${winner.name} breaks through at ${def.name}`;
+    body=`After ${(winnerSt.events||1)-1} events without a victory, ${winner.name} finally got the job done at ${def.course}, posting ${toParTxt(winnerRow.toPar)} to claim the title and ${formatMoney(prize1)}.`;
+  } else {
+    const streakCheck=winnerSt.history||[];
+    const recentResults=streakCheck.slice(-4);
+    const recentWins=recentResults.filter(h=>h.pos===1).length;
+    if(recentWins>=2){
+      icon='🔥';type='hotstreak';
+      headline=`${winner.name} on fire — ${recentWins} wins in last ${recentResults.length} events`;
+      body=`${winner.name} is the form player on tour right now. Another dominant display at ${def.name} (${toParTxt(winnerRow.toPar)}) shows no signs of slowing down.`;
+    } else {
+      headline=`${winner.name} wins ${def.name} with ${toParTxt(winnerRow.toPar)}`;
+      body=`${winner.name} held firm at ${def.course} to take the ${formatMoney(prize1)} top prize, their ${totalWins===2?'second':totalWins===3?'third':totalWins+'th'} tour victory.`;
+    }
+  }
+
+  // Runner-up
+  const runner=finishers[1];const runnerP=runner?getPlayer(runner.playerId):null;
+  if(runnerP&&!inst.deathHoleTied)body+=` ${runnerP.name} was runner-up at ${toParTxt(runner.toPar)}.`;
+
+  pushNews({type,icon,headline,body,trnId:defId,trnName:def.name,_toPar:winnerRow.toPar,
+    winnerId:inst.winnerId,clutchItems:clutchItems.slice(0,4)});
+
+  // Winless drought story (anyone who has played 8+ events with no win and finished top 5 here)
+  finishers.filter(r=>r.position>=2&&r.position<=5).forEach(row=>{
+    const p=getPlayer(row.playerId);if(!p)return;
+    const pSt=STATE.standings[row.playerId]||{};
+    if((pSt.events||0)>=8&&(pSt.wins||0)===0&&(p.career?.wins||0)===0){
+      pushNews({type:'drought',icon:'😤',trnId:defId,trnName:def.name,
+        headline:`${p.name} agonisingly close — still searching for first win`,
+        body:`A T${row.position} finish at ${def.name} is another near-miss for ${p.name}, who is still chasing that elusive first tour victory after ${pSt.events} starts.`});
+    }
+  });
+}
+
+// Called at season end — computes Player of Year, FedEx winner, Most Improved
+function computeSeasonAwards(){
+  if(STATE.players.length<2)return;
+  const season=STATE.seasonNumber;
+
+  // Player of the Year = leader in tour standings
+  const standingsSorted=STATE.players
+    .map(p=>({p,pts:(STATE.standings[p.id]||{}).points||0}))
+    .sort((a,b)=>b.pts-a.pts);
+  const poy=standingsSorted[0]?.pts>0?standingsSorted[0].p:null;
+
+  // FedEx Cup winner = leader in fedexStandings
+  const fedexSorted=STATE.players
+    .map(p=>({p,pts:(STATE.fedexStandings[p.id]||{}).points||0}))
+    .sort((a,b)=>b.pts-a.pts);
+  const fedexWinner=fedexSorted[0]?.pts>0?fedexSorted[0].p:null;
+
+  // Most Improved: compare this season points to PREVIOUS season points
+  // Previous season points live in STATE.history (the last archive entry for this player)
+  let mostImproved=null,bestDelta=-Infinity;
+  if(STATE.history.length>=1){
+    const prevArchive=STATE.history[STATE.history.length-1]; // most recent archived season
+    STATE.players.forEach(p=>{
+      const curPts=(STATE.standings[p.id]||{}).points||0;
+      const prevPts=(prevArchive.standings?.[p.id]?.points)||0;
+      // Only consider players who actually played this season
+      if((STATE.standings[p.id]||{}).events<1)return;
+      const delta=curPts-prevPts;
+      if(delta>bestDelta){bestDelta=delta;mostImproved=p;}
+    });
+    if(bestDelta<=0)mostImproved=null; // no one genuinely improved
+  }
+  // Season 1 → no Most Improved (no prior season to compare)
+
+  const award={season,playerOfYear:poy?.id||null,fedexWinner:fedexWinner?.id||null,mostImproved:mostImproved?.id||null,mostImprovedDelta:bestDelta>0?bestDelta:0};
+  STATE.awards.push(award);
+
+  // Generate a news story for the awards
+  const lines=[];
+  if(poy)lines.push(`🏅 **Player of the Year:** ${poy.name} (${(STATE.standings[poy.id]||{}).points||0} pts)`);
+  if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name} (${(STATE.fedexStandings[fedexWinner.id]||{}).points||0} FedEx pts)`);
+  if(mostImproved)lines.push(`📈 **Most Improved:** ${mostImproved.name} (+${bestDelta} pts vs last season)`);
+  else if(STATE.history.length===0)lines.push(`📈 **Most Improved:** Not awarded in Season 1`);
+
+  if(lines.length){
+    pushNews({type:'awards',icon:'🎖️',trnId:null,trnName:null,
+      headline:`Season ${season} Awards — End of Year Honours`,
+      body:lines.join(' · '),
+      awardData:award});
+  }
+}
+
 // Non-destructive season rollover: roster and career totals carry forward,
 // only the season-scoped standings/schedule/fantasy reset.
 function startNextSeason(){
   foldStandingsIntoCareer();
   updateSalaryCaps(); // update caps before standings wipe
+  computeSeasonAwards(); // compute awards before standings wipe
   STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,fantasy:STATE.fantasy,archivedAt:Date.now()});
   STATE.seasonNumber+=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
   STATE.standings={};STATE.activeTournamentId=null;STATE.fedexStandings={};
@@ -1790,8 +1990,117 @@ function scorecardHTML(def,scoreArr,currentHoleIdx){
 const scTd="padding:5px 3px;min-width:26px;border:1px solid var(--line);";
 const scTdLabel="padding:5px 6px;font-size:10px;text-transform:uppercase;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;white-space:nowrap;";
 
+/* ===== NEWS VIEW ===== */
+function renderNews(){
+  const el=document.getElementById('view-news');
+  const news=STATE.news||[];
+  const awards=STATE.awards||[];
+
+  // Latest season awards (most recent entry)
+  const latestAward=awards.length?awards[awards.length-1]:null;
+
+  // Type → accent colour map
+  const typeColor={
+    major:'var(--board-amber)',firstwin:'var(--turf-600)',hotstreak:'var(--flag-red)',
+    result:'var(--turf-700)',playoff:'var(--flag-red)',team:'#9c27b0',
+    drought:'var(--ink-500)',awards:'var(--board-amber)',record:'var(--flag-red)',clutch:'var(--turf-600)'
+  };
+
+  function awardCardHTML(){
+    if(!latestAward)return'';
+    const poy=getPlayer(latestAward.playerOfYear);
+    const fedex=getPlayer(latestAward.fedexWinner);
+    const mi=getPlayer(latestAward.mostImproved);
+    return`<div class="card" style="padding:20px;margin-bottom:24px;border-top:4px solid var(--board-amber);background:linear-gradient(135deg,rgba(217,161,59,0.07),transparent);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <span style="font-size:22px;">🎖️</span>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--board-amber);">Season ${latestAward.season} — End of Year Awards</div>
+          <h3 style="font-size:18px;color:var(--turf-900);margin-top:2px;">Honours Board</h3>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+        ${poy?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">🏅</div>
+          <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">Player of the Year</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(poy.name)}</div>
+          <div style="font-size:11px;color:var(--ink-500);margin-top:3px;">${(STATE.history.find(h=>h.seasonNumber===latestAward.season)?.standings?.[poy.id]?.points||0).toLocaleString()} pts</div>
+        </div>`:''}
+        ${fedex?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">⛳</div>
+          <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">FedEx Cup Winner</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(fedex.name)}</div>
+        </div>`:''}
+        ${mi?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">📈</div>
+          <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">Most Improved</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(mi.name)}</div>
+          <div style="font-size:11px;color:var(--turf-600);margin-top:3px;">+${latestAward.mostImprovedDelta} pts vs last season</div>
+        </div>`:''}
+        ${!poy&&!fedex&&!mi?`<div style="color:var(--ink-500);font-size:13px;">Complete a season to see awards.</div>`:''}
+      </div>
+    </div>`;
+  }
+
+  function newsItemHTML(item){
+    const accent=typeColor[item.type]||'var(--turf-700)';
+    const timeAgo=(()=>{
+      const diff=Date.now()-item.ts;const m=Math.floor(diff/60000);const h=Math.floor(diff/3600000);const d=Math.floor(diff/86400000);
+      return d>0?`${d}d ago`:h>0?`${h}h ago`:m>0?`${m}m ago`:'Just now';
+    })();
+
+    // Parse **bold** markers in body text
+    const parseBold=s=>s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+
+    return`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px;border-left:4px solid ${accent};">
+      <div style="padding:16px 18px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <span style="font-size:26px;flex-shrink:0;line-height:1;">${item.icon}</span>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px;">
+              ${item.trnName?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;background:rgba(0,0,0,0.06);padding:2px 7px;border-radius:2px;color:var(--ink-700);">${escapeHTML(item.trnName)}</span>`:''}
+              <span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;color:var(--ink-500);letter-spacing:0.04em;">S${item.season} · ${timeAgo}</span>
+            </div>
+            <div style="font-family:'Oswald',sans-serif;font-size:17px;color:var(--turf-900);line-height:1.2;margin-bottom:7px;">${escapeHTML(item.headline)}</div>
+            <div style="font-size:13px;color:var(--ink-700);line-height:1.55;">${parseBold(escapeHTML(item.body))}</div>
+            ${item.clutchItems&&item.clutchItems.length?`
+            <div style="margin-top:12px;display:flex;flex-direction:column;gap:5px;">
+              ${item.clutchItems.map(c=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-700);background:var(--sand-200);padding:5px 10px;border-radius:3px;">
+                <span>${c.icon}</span><span>${escapeHTML(c.text)}</span>
+              </div>`).join('')}
+            </div>`:''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Filter controls
+  const filterTypes=['all','major','firstwin','hotstreak','awards','playoff','drought'];
+  const filterLabels={all:'All',major:'Majors',firstwin:'First Wins',hotstreak:'Hot Streaks',awards:'Awards',playoff:'Playoffs',drought:'Near Misses'};
+  const activeFilter=renderNews._filter||'all';
+
+  const filtered=activeFilter==='all'?news:news.filter(n=>n.type===activeFilter);
+
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">Your Tour · Season ${STATE.seasonNumber}</span><h2>Newsroom</h2></div>
+    <span style="font-size:12px;color:var(--ink-500);">${news.length} stories</span>
+  </div>
+  ${awardCardHTML()}
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px;">
+    ${filterTypes.map(f=>`<button class="news-filter-btn" data-filter="${f}" style="padding:5px 12px;border-radius:14px;border:1px solid ${activeFilter===f?'var(--turf-800)':'var(--line)'};background:${activeFilter===f?'var(--turf-800)':'#fff'};color:${activeFilter===f?'#fff':'var(--ink-700)'};font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;cursor:pointer;">${filterLabels[f]}</button>`).join('')}
+  </div>
+  ${filtered.length===0?`<div class="empty-state"><h3>${news.length===0?'No news yet':'Nothing in this category'}</h3><p>${news.length===0?'Stories appear automatically after each tournament finishes. Play some events to start the feed.':'Try a different filter.'}</p></div>`:`
+  <div>${filtered.map(newsItemHTML).join('')}</div>`}`;
+
+  el.querySelectorAll('.news-filter-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{renderNews._filter=btn.dataset.filter;renderNews();});
+  });
+  el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+}
+
 /* ===== NAV ===== */
-const VIEWS=['schedule','roster','standings','fantasy','tournament'];
+const VIEWS=['schedule','roster','standings','fantasy','news','tournament'];
 function switchView(view){
   VIEWS.forEach(v=>{document.getElementById('view-'+v).classList.toggle('active',v===view);});
   document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active',t.dataset.view===view));
@@ -1802,6 +2111,7 @@ function renderCurrentView(view){
   else if(view==='roster')renderRoster();
   else if(view==='standings')renderStandings();
   else if(view==='fantasy')renderFantasy();
+  else if(view==='news')renderNews();
   else if(view==='tournament')renderTournament();
 }
 function refreshTopbar(){
