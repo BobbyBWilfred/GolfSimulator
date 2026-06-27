@@ -179,7 +179,7 @@ const TOURNAMENT_SEEDS=[
   {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:7.5,seed:13,yard:-18},
   // Team Event — fantasy teams compete directly
   {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:14,yard:0,teamEvent:false},
-  {name:"Zurich Classic — Team Challenge",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:20,seed:15,yard:-8,teamEvent:true,bigPurse:true},
+  {name:"Ryder Cup",course:"Bethpage Black",loc:"Farmingdale, NY",major:false,purse:0,seed:15,yard:0,rydercup:true},
   {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:16,yard:6,playoff:true},
   {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:17,yard:22,playoff:true},
   {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:75,seed:18,yard:4,playoff:true},
@@ -190,7 +190,7 @@ const TOURNAMENT_SEEDS=[
 function buildTournamentDefs(){
   return TOURNAMENT_SEEDS.map((t,idx)=>({
     id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,
-    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,purseM:t.purse,rounds:t.major?4:2,
+    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:t.major?4:2,
     holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
   }));
 }
@@ -253,6 +253,8 @@ function freshState(){
     majorChampions:{},      // trnId -> [{season, playerId, toPar, strokes}]
     news:[],                // [{id,season,trnId,type,icon,headline,body,ts,clutch}]
     awards:[],              // [{season,playerOfYear,fedexWinner,mostImproved}]
+    rydercup:null,          // active ryder cup state, null when not in progress
+    worldRanking:{},        // playerId -> {pts, history:[{trnId,trnName,pts,season,week,major,playoff}]}
     fantasy:{
       drafted:false,        // whether draft has been done this season
       captains:[],          // array of {id,name,color} — up to 5
@@ -268,7 +270,7 @@ function normalizeState(p){
   p.players=p.players||[];
   p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
-  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];
+  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.fantasy)p.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   return p;
 }
@@ -615,26 +617,28 @@ function finishTournamentIfDone(defId){
     STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:winner.playerId,toPar:winner.toPar,strokes:winner.strokes});
   }
 
-  // Death hole: if top 2 finishers are tied in strokes, mark it as tied for UI
+  // Death hole: if top 2+ finishers are tied, DON'T auto-resolve.
+  // Mark as playoff_pending so the player can simulate it hole by hole.
   if(finishers.length>=2&&finishers[0].toPar===finishers[1].toPar){
-    inst.deathHoleTied=true;
-    // Simulate a sudden-death playoff hole: each tied player plays a par-4, winner is lowest score
     const tiedPids=finishers.filter(r=>r.toPar===finishers[0].toPar).map(r=>r.playerId);
-    const playoffHoleDef={hole:'P',par:4,yards:430};
-    let bestScore=99,bestPid=null;
-    tiedPids.forEach(pid=>{
-      const p=getPlayer(pid);if(!p)return;
-      const hs=simulateFullHole(playoffHoleDef,effectiveAttrs(p));
-      if(hs.strokes<bestScore){bestScore=hs.strokes;bestPid=pid;}
-    });
-    if(bestPid){
-      inst.winnerId=bestPid;
-      inst.deathHoleWinner=bestPid;
-      inst.deathHoleScore=bestScore;
-      // Swap the winner in leaderboard cache
-      const wRow=lb.find(r=>r.playerId===bestPid);
-      if(wRow)wRow.deathHoleWin=true;
-    }
+    inst.status='playoff_pending';
+    inst.tiedPids=tiedPids;
+    // Build a sudden-death par-4 playoff hole session
+    inst.playoffHole={
+      holeDef:{hole:'P',par:4,yards:430},
+      holeNum:1,
+      scores:{},   // pid -> strokes on each playoff hole (array)
+      currentHole:1,
+      eliminated:[], // pids knocked out
+      remainingPids:tiedPids.slice(),
+      done:false,
+      winnerId:null,
+    };
+    // Init score arrays
+    tiedPids.forEach(pid=>inst.playoffHole.scores[pid]=[]);
+    // Do NOT call generateTournamentNews yet — wait until playoff resolves
+    if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+    saveState();return false; // not truly finished yet
   }
 
   // missed cut still gets event credit
@@ -647,6 +651,9 @@ function finishTournamentIfDone(defId){
   // Fantasy scoring
   updateFantasyScores(defId,lb);
 
+  // World ranking update
+  updateWorldRanking(defId,lb);
+
   // Generate news storylines for this tournament
   generateTournamentNews(defId,lb,inst);
 
@@ -657,6 +664,72 @@ function finishTournamentIfDone(defId){
 function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
   const inst=getInstance(defId);if(!inst)return;
   inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
+}
+
+// Called after all remaining tied players have finished a sudden-death playoff hole.
+// Returns true if the playoff is now resolved (a winner found), false if another hole needed.
+function resolvePlayoffHoleIfComplete(defId){
+  const inst=getInstance(defId);
+  const ph=inst.playoffHole;if(!ph||ph.done)return false;
+  const holeNum=ph.currentHole;
+  // Check all remaining players have a score for this hole
+  const allDone=ph.remainingPids.every(pid=>(ph.scores[pid]||[]).length>=holeNum);
+  if(!allDone)return false;
+  // Find minimum score this hole among remaining
+  const holeScores=ph.remainingPids.map(pid=>({pid,s:ph.scores[pid][holeNum-1]}));
+  const minScore=Math.min(...holeScores.map(h=>h.s));
+  const survivors=holeScores.filter(h=>h.s===minScore).map(h=>h.pid);
+  const eliminated=holeScores.filter(h=>h.s>minScore).map(h=>h.pid);
+  ph.eliminated.push(...eliminated);
+  if(survivors.length===1){
+    // We have a winner
+    ph.done=true;ph.winnerId=survivors[0];
+    const def=getDef(defId);const lb=inst.leaderboardCache||computeLeaderboard(defId);
+    const finishers=lb.filter(r=>!r.cut);
+    // Now actually finalise: credit wins only to the playoff winner
+    inst.winnerId=survivors[0];
+    inst.deathHoleTied=true;
+    inst.deathHoleWinner=survivors[0];
+    inst.deathHoleHolesPlayed=holeNum;
+    inst.status='complete';inst.completedAt=Date.now();
+    // Award wins — only the playoff winner gets win credit, all get earnings/events
+    const fieldAvgToPar=finishers.length?finishers.reduce((s,r)=>s+r.toPar,0)/finishers.length:0;
+    finishers.forEach(row=>{
+      const pts=pointsForPosition(row.position,def.major);
+      const prize=prizeForPosition(row.position,def.purseM,finishers.length);
+      if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+      const st=STATE.standings[row.playerId];
+      if(def.playoff){
+        if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
+        STATE.fedexStandings[row.playerId].points+=pts;
+        STATE.fedexStandings[row.playerId].earnings+=prize;
+      } else { st.points+=pts; }
+      st.earnings+=prize;st.events++;
+      // Only the playoff winner gets the win
+      if(row.playerId===survivors[0]&&row.position===1)st.wins++;
+      st.history.push({trnId:def.id,trnName:def.name,pos:row.playerId===survivors[0]?1:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
+    });
+    if(def.major){
+      const winner=finishers.find(r=>r.playerId===survivors[0]);
+      if(winner){if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:survivors[0],toPar:winner.toPar,strokes:winner.strokes});}
+    }
+    lb.filter(r=>r.cut).forEach(row=>{
+      if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+      STATE.standings[row.playerId].events++;
+      const fieldAvg=fieldAvgToPar;
+      STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvg});
+    });
+    updateFantasyScores(defId,lb);
+    updateWorldRanking(defId,lb);
+    generateTournamentNews(defId,lb,inst);
+    if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+    saveState();return true;
+  } else {
+    // Still tied — need another hole
+    ph.remainingPids=survivors;
+    ph.currentHole++;
+    saveState();return false;
+  }
 }
 
 /* ===== FANTASY ===== */
@@ -768,6 +841,7 @@ function rosterCardHTML(p){
   const totalWins=career.wins+(st.wins||0),totalEarnings=career.earnings+(st.earnings||0),totalEvents=career.events+(st.events||0);
   const formScore=playerFormScore(p.id);const form=formLabel(formScore);
   const effOv=overallOf(effectiveAttrs(p));
+  const wrRank=playerWorldRank(p.id);
   // find fantasy team
   let teamBadge='';
   if(STATE.fantasy.drafted){
@@ -786,7 +860,7 @@ function rosterCardHTML(p){
         <div style="font-family:'Oswald',sans-serif;font-size:15px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
           ${flagEmoji(p.country)} ${escapeHTML(p.name)} ${teamBadge}
         </div>
-        <div style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${totalEvents} events · ${totalWins} W · ${formatMoney(totalEarnings)}</div>
+        <div style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${totalEvents} events · ${totalWins} W · ${formatMoney(totalEarnings)}${wrRank?` · <span style="color:var(--turf-600);font-weight:700;">WR #${wrRank}</span>`:''}</div>
       </div>
       <div style="text-align:right;">
         <div class="num" style="font-size:22px;color:${ovColor};">${ov}</div>
@@ -817,6 +891,8 @@ function openProfileModal(pid){
   const maxEarnings=Math.max(...(st.history||[]).filter(h=>h.prize>0).map(h=>h.prize),1);
   const formScore=playerFormScore(p.id);const form=formLabel(formScore);
   const effAttrs=effectiveAttrs(p);const effOv=overallOf(effAttrs);
+  const wrRank=playerWorldRank(p.id);
+  const wrData=STATE.worldRanking[p.id]||{pts:0,history:[]};
   const root=document.getElementById('modal-root');
   root.innerHTML=`<div class="modal-overlay" id="profile-overlay">
     <div class="modal" style="max-width:600px;">
@@ -830,6 +906,7 @@ function openProfileModal(pid){
           <div style="margin-left:auto;text-align:right;">
             <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Career Earnings</div>
             <div class="num" style="font-size:22px;color:var(--board-amber);">${formatMoney(totalEarnings)}</div>
+            ${wrRank?`<div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:var(--turf-600);margin-top:2px;">🌍 World No. ${wrRank} · ${(wrData.pts||0).toLocaleString()} pts</div>`:''}
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;background:var(--sand-200);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
@@ -988,7 +1065,7 @@ function restartSeason(){
   const hasProgress=STATE.schedule.some(s=>s.status!=='scheduled')||Object.keys(STATE.standings).length>0;
   if(hasProgress)STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,fantasy:STATE.fantasy,archivedAt:Date.now()});
   STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
-  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};STATE.news=[];STATE.awards=[];
+  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};STATE.news=[];STATE.awards=[];STATE.rydercup=null;STATE.worldRanking={};
   STATE.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   saveState();
 }
@@ -1006,6 +1083,88 @@ function updateSalaryCaps(){
     cap=Math.max(1000000,Math.min(10000000,Math.round(cap/100000)*100000));
     p.salaryCap=cap;
   });
+}
+
+/* ===== WORLD RANKING ENGINE =====
+   Separate from PGA Tour season points. Never resets.
+   Points awarded per finish, weighted by event type.
+   Rolling: each result decays 15% per season it ages.
+   Ranking is recomputed live from the history on demand.
+   ================================================== */
+
+// World ranking points per finish position (independent scale, more granular than tour pts)
+const WR_BASE=[1000,600,400,300,250,210,180,155,135,120,108,96,86,77,69,62,56,51,46,42,38,35,32,29,27,25,23,21,19,17,15,14,13,12,11,10,9,8,7,6];
+const WR_MAJOR_MULT=2.0;
+const WR_PLAYOFF_MULT=1.5;
+const WR_DECAY=0.85; // per season elapsed
+
+function wrPointsForFinish(pos,isMajor,isPlayoff){
+  const idx=pos-1;
+  let base=idx<WR_BASE.length?WR_BASE[idx]:Math.max(1,6-(idx-WR_BASE.length));
+  if(isMajor)base=Math.round(base*WR_MAJOR_MULT);
+  else if(isPlayoff)base=Math.round(base*WR_PLAYOFF_MULT);
+  return base;
+}
+
+// Called after every tournament completes (including playoff resolve).
+// Adds the result to each player's WR history and recomputes their live WR points.
+function updateWorldRanking(defId,lb){
+  if(!STATE.worldRanking)STATE.worldRanking={};
+  const def=getDef(defId);
+  if(def.rydercup)return; // Ryder Cup doesn't count for world ranking
+  const finishers=lb.filter(r=>!r.cut&&r.position);
+  const currentSeason=STATE.seasonNumber;
+
+  finishers.forEach(row=>{
+    if(!row.position)return;
+    const pts=wrPointsForFinish(row.position,!!def.major,!!def.playoff);
+    if(!STATE.worldRanking[row.playerId])STATE.worldRanking[row.playerId]={pts:0,history:[]};
+    // Avoid double-counting: remove any previous entry for this trnId+season
+    STATE.worldRanking[row.playerId].history=STATE.worldRanking[row.playerId].history.filter(h=>!(h.trnId===def.id&&h.season===currentSeason));
+    STATE.worldRanking[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:row.position,pts,season:currentSeason,major:!!def.major,playoff:!!def.playoff});
+  });
+
+  // Give a small credit for MC (shows activity on tour)
+  lb.filter(r=>r.cut).forEach(row=>{
+    if(!STATE.worldRanking[row.playerId])STATE.worldRanking[row.playerId]={pts:0,history:[]};
+    STATE.worldRanking[row.playerId].history=STATE.worldRanking[row.playerId].history.filter(h=>!(h.trnId===def.id&&h.season===currentSeason));
+    STATE.worldRanking[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,season:currentSeason,major:!!def.major,playoff:!!def.playoff});
+  });
+
+  recomputeAllWRPoints();
+}
+
+// Recompute live WR points for all players from their history, applying decay
+function recomputeAllWRPoints(){
+  const curSeason=STATE.seasonNumber;
+  STATE.players.forEach(p=>{
+    const wr=STATE.worldRanking[p.id];if(!wr)return;
+    let total=0;
+    wr.history.forEach(h=>{
+      const age=curSeason-h.season; // 0 = current season, 1 = last season, etc.
+      const decay=Math.pow(WR_DECAY,age);
+      total+=Math.round((h.pts||0)*decay);
+    });
+    wr.pts=total;
+  });
+}
+
+// Returns sorted array [{playerId,player,pts,rank,trend}] — trend = rank change vs last week
+function getWorldRankings(){
+  recomputeAllWRPoints();
+  const rows=STATE.players.map(p=>{
+    const wr=STATE.worldRanking[p.id]||{pts:0,history:[]};
+    return{playerId:p.id,player:p,pts:wr.pts,history:wr.history};
+  }).sort((a,b)=>b.pts-a.pts);
+  rows.forEach((r,i)=>r.rank=i+1);
+  return rows;
+}
+
+// Returns a player's current world rank (1-indexed), or null
+function playerWorldRank(pid){
+  const rows=getWorldRankings();
+  const r=rows.find(r=>r.playerId===pid);
+  return r?r.rank:null;
 }
 
 /* ===== NEWS & STORYLINE ENGINE ===== */
@@ -1182,13 +1341,18 @@ function computeSeasonAwards(){
   }
   // Season 1 → no Most Improved (no prior season to compare)
 
-  const award={season,playerOfYear:poy?.id||null,fedexWinner:fedexWinner?.id||null,mostImproved:mostImproved?.id||null,mostImprovedDelta:bestDelta>0?bestDelta:0};
+  // World Ranking #1 at season end
+  const wrRows=getWorldRankings();
+  const wrNo1=wrRows.length&&wrRows[0].pts>0?wrRows[0].player:null;
+
+  const award={season,playerOfYear:poy?.id||null,fedexWinner:fedexWinner?.id||null,mostImproved:mostImproved?.id||null,mostImprovedDelta:bestDelta>0?bestDelta:0,worldNo1:wrNo1?.id||null};
   STATE.awards.push(award);
 
   // Generate a news story for the awards
   const lines=[];
   if(poy)lines.push(`🏅 **Player of the Year:** ${poy.name} (${(STATE.standings[poy.id]||{}).points||0} pts)`);
   if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name} (${(STATE.fedexStandings[fedexWinner.id]||{}).points||0} FedEx pts)`);
+  if(wrNo1)lines.push(`🌍 **World No. 1:** ${wrNo1.name} (${(STATE.worldRanking[wrNo1.id]||{}).pts||0} WR pts)`);
   if(mostImproved)lines.push(`📈 **Most Improved:** ${mostImproved.name} (+${bestDelta} pts vs last season)`);
   else if(STATE.history.length===0)lines.push(`📈 **Most Improved:** Not awarded in Season 1`);
 
@@ -1212,6 +1376,183 @@ function startNextSeason(){
   STATE.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   saveState();
 }
+
+/* ===== RYDER CUP ENGINE ===== */
+const RC_WINNER_PURSE=100000000; // $100M
+const RC_RUNNER_PURSE=25000000;  // $25M
+
+// Build the 5-team group stage schedule: every team vs every other team (10 matchups)
+function rcBuildGroupSchedule(captainIds){
+  const matchups=[];
+  for(let i=0;i<captainIds.length;i++){
+    for(let j=i+1;j<captainIds.length;j++){
+      matchups.push({id:'mu_'+i+'_'+j,teamA:captainIds[i],teamB:captainIds[j],
+        matches:[
+          {type:'foursomes',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+          {type:'fourball',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+          {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+        ],
+        groupPtsA:0,groupPtsB:0,done:false});
+    }
+  }
+  return matchups;
+}
+
+function rcInit(defId){
+  if(!STATE.fantasy.drafted||STATE.fantasy.captains.length<2){showToast('Set up fantasy teams first.',true);return;}
+  const caps=STATE.fantasy.captains;
+  const capIds=caps.map(c=>c.id);
+  STATE.rydercup={
+    defId,
+    season:STATE.seasonNumber,
+    phase:'group',   // 'group' | 'final' | 'complete'
+    groupMatchups:rcBuildGroupSchedule(capIds),
+    teamPoints:{},   // capId -> group stage points
+    final:null,      // {teamA,teamB,matches:[...],winner:null} set after group
+    winner:null,     // capId of cup winner
+    runnerUp:null,
+  };
+  caps.forEach(c=>STATE.rydercup.teamPoints[c.id]=0);
+  const inst=getInstance(defId);
+  inst.status='in_progress';inst.rydercupActive=true;
+  STATE.activeTournamentId=defId;
+  saveState();
+  switchView('tournament');
+}
+
+// Accumulate group stage points from a completed matchup
+function rcTallyMatchup(mu){
+  mu.matches.forEach(m=>{
+    if(!m.result)return;
+    if(m.result==='A'){STATE.rydercup.teamPoints[mu.teamA]=(STATE.rydercup.teamPoints[mu.teamA]||0)+1;}
+    else if(m.result==='B'){STATE.rydercup.teamPoints[mu.teamB]=(STATE.rydercup.teamPoints[mu.teamB]||0)+1;}
+    else{STATE.rydercup.teamPoints[mu.teamA]=(STATE.rydercup.teamPoints[mu.teamA]||0)+0.5;STATE.rydercup.teamPoints[mu.teamB]=(STATE.rydercup.teamPoints[mu.teamB]||0)+0.5;}
+  });
+  mu.done=true;
+}
+
+function rcAllGroupDone(){
+  return STATE.rydercup.groupMatchups.every(mu=>mu.done);
+}
+
+function rcAdvanceToFinal(){
+  const rc=STATE.rydercup;
+  // Sort teams by group points
+  const sorted=STATE.fantasy.captains
+    .map(c=>({capId:c.id,pts:rc.teamPoints[c.id]||0}))
+    .sort((a,b)=>b.pts-a.pts);
+  const teamA=sorted[0].capId,teamB=sorted[1].capId;
+  rc.final={
+    teamA,teamB,
+    matches:[
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+      {type:'singles',status:'pending',lineupA:[],lineupB:[],holesPlayed:[],result:null},
+    ],
+    ptsA:0,ptsB:0,winner:null,
+  };
+  rc.phase='final';
+  saveState();
+}
+
+function rcCheckFinalDone(){
+  const rc=STATE.rydercup;if(!rc.final)return;
+  const f=rc.final;
+  let ptsA=0,ptsB=0;
+  f.matches.forEach(m=>{if(m.result==='A')ptsA+=1;else if(m.result==='B')ptsB+=1;else if(m.result==='H'){ptsA+=0.5;ptsB+=0.5;}});
+  f.ptsA=ptsA;f.ptsB=ptsB;
+  const remaining=f.matches.filter(m=>!m.result).length;
+  const maxPossibleB=ptsB+remaining;const maxPossibleA=ptsA+remaining;
+  if(ptsA>=3.5||(remaining===0&&ptsA>ptsB)){f.winner=f.teamA;rcFinalize(f.teamA,f.teamB);}
+  else if(ptsB>=3.5||(remaining===0&&ptsB>ptsA)){f.winner=f.teamB;rcFinalize(f.teamB,f.teamA);}
+  else if(remaining===0&&ptsA===ptsB){f.winner=f.teamA;rcFinalize(f.teamA,f.teamB);} // tie → defender wins (team A = higher seed)
+}
+
+function rcFinalize(winnerId,runnerId){
+  const rc=STATE.rydercup;
+  rc.winner=winnerId;rc.runnerUp=runnerId;rc.phase='complete';
+  // Prize money — split among 6 players per team (or however many)
+  const winTeam=STATE.fantasy.teams[winnerId];const runTeam=STATE.fantasy.teams[runnerId];
+  const winShare=Math.round(RC_WINNER_PURSE/(winTeam?.playerIds?.length||6));
+  const runShare=Math.round(RC_RUNNER_PURSE/(runTeam?.playerIds?.length||6));
+  (winTeam?.playerIds||[]).forEach(pid=>{
+    if(!STATE.standings[pid])STATE.standings[pid]={points:0,earnings:0,wins:0,events:0,history:[]};
+    STATE.standings[pid].earnings+=winShare;
+  });
+  (runTeam?.playerIds||[]).forEach(pid=>{
+    if(!STATE.standings[pid])STATE.standings[pid]={points:0,earnings:0,wins:0,events:0,history:[]};
+    STATE.standings[pid].earnings+=runShare;
+  });
+  // Mark schedule instance complete
+  const inst=getInstance(rc.defId);if(inst){inst.status='complete';inst.completedAt=Date.now();inst.winnerId=winnerId;}
+  if(STATE.activeTournamentId===rc.defId)STATE.activeTournamentId=null;
+  // News story
+  const winCap=STATE.fantasy.captains.find(c=>c.id===winnerId);
+  const runCap=STATE.fantasy.captains.find(c=>c.id===runnerId);
+  pushNews({type:'rydercup',icon:'🏆',trnId:rc.defId,trnName:'Ryder Cup',
+    headline:`🏆 RYDER CUP: ${winCap?.name||'?'} wins the Cup!`,
+    body:`${winCap?.name||'?'} defeated ${runCap?.name||'?'} in the Final to claim the Ryder Cup and split $100M between their team. ${runCap?.name||'?'} take $25M as runners-up.`
+  });
+  saveState();
+}
+
+// Simulate a single match play match (foursomes/fourball/singles) over N holes
+// Returns result: 'A', 'B', or 'H' (half)
+function rcSimulateMatch(matchDef,teamAPlayerIds,teamBPlayerIds,numHoles,matchType){
+  const holes=[];for(let h=0;h<numHoles;h++){holes.push({hole:h+1,par:4,yards:430});}
+  let scoreA=0,scoreB=0,holesRemaining=numHoles;
+  for(let h=0;h<numHoles;h++){
+    holesRemaining=numHoles-h;
+    // Can't win from here?
+    if(Math.abs(scoreA-scoreB)>holesRemaining)break;
+    let strokeA,strokeB;
+    if(matchType==='foursomes'){
+      // Alternate shot: use average of pair attrs
+      const pA1=getPlayer(teamAPlayerIds[0]),pA2=getPlayer(teamAPlayerIds[1]||teamAPlayerIds[0]);
+      const pB1=getPlayer(teamBPlayerIds[0]),pB2=getPlayer(teamBPlayerIds[1]||teamBPlayerIds[0]);
+      const attrsA=avgAttrs([effectiveAttrs(pA1),effectiveAttrs(pA2)]);
+      const attrsB=avgAttrs([effectiveAttrs(pB1),effectiveAttrs(pB2)]);
+      strokeA=simulateFullHole(holes[h],attrsA).strokes;
+      strokeB=simulateFullHole(holes[h],attrsB).strokes;
+    } else if(matchType==='fourball'){
+      // Best ball: each player plays own ball, take best
+      const scoresA=teamAPlayerIds.slice(0,2).map(pid=>{const p=getPlayer(pid);return p?simulateFullHole(holes[h],effectiveAttrs(p)).strokes:99;});
+      const scoresB=teamBPlayerIds.slice(0,2).map(pid=>{const p=getPlayer(pid);return p?simulateFullHole(holes[h],effectiveAttrs(p)).strokes:99;});
+      strokeA=Math.min(...scoresA);strokeB=Math.min(...scoresB);
+    } else {
+      // Singles
+      const pA=getPlayer(teamAPlayerIds[0]),pB=getPlayer(teamBPlayerIds[0]);
+      strokeA=pA?simulateFullHole(holes[h],effectiveAttrs(pA)).strokes:5;
+      strokeB=pB?simulateFullHole(holes[h],effectiveAttrs(pB)).strokes:5;
+    }
+    if(strokeA<strokeB)scoreA++;else if(strokeB<strokeA)scoreB++;
+  }
+  if(scoreA>scoreB)return'A';if(scoreB>scoreA)return'B';return'H';
+}
+
+function avgAttrs(attrsList){
+  const out={};ATTRS.forEach(a=>{out[a.key]=Math.round(attrsList.reduce((s,at)=>s+(at[a.key]||70),0)/attrsList.length);});return out;
+}
+
+// PLAY_UI state for Ryder Cup match-play hole-by-hole
+let RC_PLAY={
+  matchupId:null,matchIdx:null,isFinal:false,
+  holeNum:1,totalHoles:9,
+  playerA1:null,playerA2:null,playerB1:null,playerB2:null,
+  // hole state per active player slot (foursomes: 2 slots alternating; fourball: 4; singles: 2)
+  hsA:null,hsB:null, // foursomes/singles — one hs each side
+  hsA1:null,hsA2:null,hsB1:null,hsB2:null, // fourball
+  matchType:null,
+  turnA:true, // foursomes: whose turn is it on team A
+  holesA:0,holesB:0, // holes won per team
+  holesHalved:0,
+  done:false,activeShooter:'A', // for foursomes: 'A'|'B', for fourball cycles through A1,A2,B1,B2
+  shotPhase:'A', // which player is currently hitting in fourball
+  log:[],
+};
 
 /* ===== SCHEDULE VIEW ===== */
 function statusBadge(status){
@@ -1269,6 +1610,7 @@ function scheduleRowHTML(inst,i){
         ${isTeam?`<span style="background:rgba(156,39,176,0.15);color:#6a1b9a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 TEAM EVENT</span>`:''}
         ${isPlayoff?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">⛳ PLAYOFF · TOP 10</span>`:''}
         ${def.bigPurse?`<span style="background:rgba(217,161,59,0.18);color:#7a5a0a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">💰 ELEVATED PURSE</span>`:''}
+        ${def.rydercup?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 RYDER CUP</span>`:''}
         ${statusBadge(inst.status)}
       </div>
       <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.course} · ${def.location} · ${def.rounds} rounds · $${def.purseM}M purse</div>
@@ -1416,6 +1758,55 @@ function renderStandings(){
   })()}`;
   document.getElementById('view-history-btn')?.addEventListener('click',renderHistoryModal);
   el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+
+  // World Rankings sub-section (appended after main standings card)
+  const wrRows=getWorldRankings().filter(r=>r.pts>0);
+  if(wrRows.length){
+    const wrSection=document.createElement('div');
+    wrSection.innerHTML=`
+    <div style="margin-top:24px;">
+      <div class="section-head" style="margin-top:0;">
+        <div><span class="eyebrow">All-Time · Persists Across Seasons</span><h2>🌍 World Rankings</h2></div>
+        <span style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">Based on rolling results · majors ×2 · playoffs ×1.5 · 15% decay per season</span>
+      </div>
+      <div class="card" style="overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:var(--turf-900);color:var(--paper-50);">
+            <th style="${thStyle}width:44px;">Rank</th>
+            <th style="${thStyle}text-align:left;">Player</th>
+            <th style="${thStyle}">Country</th>
+            <th style="${thStyle}">Events</th>
+            <th style="${thStyle}">WR Points</th>
+            <th style="${thStyle}">Best Finish</th>
+          </tr></thead>
+          <tbody>${wrRows.map((r,i)=>{
+            const bestFinish=r.history.filter(h=>typeof h.pos==='number').sort((a,b)=>a.pos-b.pos)[0];
+            const isNo1=i===0;
+            return`<tr style="border-bottom:1px solid var(--line);${isNo1?'background:rgba(63,122,77,0.08);':''}">
+              <td style="${tdStyle}">
+                <span class="num" style="font-size:${isNo1?'20px':'16px'};color:${isNo1?'var(--turf-600)':'var(--ink-900)'};">${isNo1?'🌍':i+1}</span>
+              </td>
+              <td style="${tdStyle}text-align:left;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="width:24px;height:24px;border-radius:50%;background:${avatarColor(r.player.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(r.player.name)}</span>
+                  <button class="btn ghost btn-sm" style="padding:2px 6px;" data-view-profile="${r.player.id}">${flagEmoji(r.player.country)} ${escapeHTML(r.player.name)}</button>
+                  ${isNo1?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:var(--turf-700);color:#fff;padding:1px 6px;border-radius:10px;">WORLD NO. 1</span>`:''}
+                </div>
+              </td>
+              <td style="${tdStyle}" class="num" style="font-size:12px;">${flagEmoji(r.player.country)} ${r.player.country}</td>
+              <td style="${tdStyle}" class="num">${r.history.length}</td>
+              <td style="${tdStyle}" class="num" style="font-size:16px;color:var(--turf-700);">${r.pts.toLocaleString()}</td>
+              <td style="${tdStyle}">
+                ${bestFinish?`<span style="font-size:12px;font-family:'Barlow Condensed',sans-serif;font-weight:700;color:${bestFinish.pos===1?'var(--board-amber)':'var(--turf-700)'};">${bestFinish.pos===1?'🏆 ':''}T${bestFinish.pos}</span><span style="font-size:10px;color:var(--ink-500);margin-left:4px;">${escapeHTML(bestFinish.trnName||'')}</span>`:'—'}
+              </td>
+            </tr>`;}).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+    el.appendChild(wrSection);
+    wrSection.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+  }
 }
 const thStyle="padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;font-family:'Barlow Condensed',sans-serif;text-align:center;";
 const tdStyle="padding:10px 12px;text-align:center;font-size:13px;";
@@ -1663,6 +2054,10 @@ function teamEventResultsHTML(){
 /* ===== FIELD MODAL ===== */
 function openFieldModal(defId){
   const def=getDef(defId);const inst=getInstance(defId);
+  if(def.rydercup){
+    if(!STATE.fantasy.drafted||STATE.fantasy.captains.length<2){showToast('Set up fantasy teams (Fantasy tab) before starting the Ryder Cup.',true);return;}
+    rcInit(defId);return;
+  }
   if(def.playoff){
     const top10=topPlayersByPoints(10);
     if(top10.length<2){showToast('Need at least 2 players with points on the board to set the playoff field.',true);return;}
@@ -1721,14 +2116,30 @@ function lieColor(lie){return{tee:'var(--turf-700)',fairway:'var(--turf-600)',ro
 function renderTournament(){
   const el=document.getElementById('view-tournament');
   const defId=STATE.activeTournamentId||PLAY_UI.defId;
-  if(!defId){el.innerHTML=`<div class="empty-state"><h3>No event in progress</h3><p>Set a field from Schedule to start playing.</p></div>`;return;}
+  if(!defId){
+    // Check if there's a ryder cup in progress even without activeTournamentId
+    if(STATE.rydercup&&STATE.rydercup.phase!=='complete'){
+      renderRyderCupView(el);return;
+    }
+    el.innerHTML=`<div class="empty-state"><h3>No event in progress</h3><p>Set a field from Schedule to start playing.</p></div>`;return;
+  }
   const inst=getInstance(defId);const def=getDef(defId);
   if(!inst||inst.status==='scheduled'){el.innerHTML=`<div class="empty-state"><h3>Event hasn't started</h3><p>Go to Schedule and set the field to tee off.</p></div>`;return;}
+
+  // Ryder Cup takes over the tournament view entirely
+  if(def.rydercup){renderRyderCupView(el);return;}
+
   PLAY_UI.defId=defId;
   let roundIdx=inst.rounds.findIndex((_,i)=>!isRoundComplete(inst,i));
   if(roundIdx===-1)roundIdx=inst.rounds.length-1;
   PLAY_UI.roundIdx=roundIdx;
   applyCutIfNeeded(defId);
+
+  // Sudden-death playoff pending — show playoff UI instead of normal tournament
+  if(inst.status==='playoff_pending'){
+    renderPlayoffHoleView(el,defId);return;
+  }
+
   const finishedNow=finishTournamentIfDone(defId);
   const lb=computeLeaderboard(defId);const isComplete=inst.status==='complete';
   el.innerHTML=`<div class="section-head">
@@ -1971,6 +2382,562 @@ function advanceAfterHole(defId,roundIdx,pid){
   renderTournament();
 }
 
+/* ===== SUDDEN DEATH PLAYOFF HOLE VIEW ===== */
+let PH_PLAY={pid:null,holeState:null}; // which tied player is currently hitting
+
+function renderPlayoffHoleView(el,defId){
+  const inst=getInstance(defId);const def=getDef(defId);
+  const ph=inst.playoffHole;
+  const tiedPlayers=ph.remainingPids.map(pid=>getPlayer(pid)).filter(Boolean);
+  const holeNum=ph.currentHole;
+  const holeDef={hole:`P${holeNum}`,par:4,yards:430};
+
+  // Find who still needs to play this hole
+  const needToPlay=ph.remainingPids.filter(pid=>(ph.scores[pid]||[]).length<holeNum);
+  const donePlaying=ph.remainingPids.filter(pid=>(ph.scores[pid]||[]).length>=holeNum);
+
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow" style="color:var(--flag-red);">⚡ SUDDEN DEATH PLAYOFF</span><h2>${def.name}</h2></div>
+    <div class="eyebrow">Par 4 · 430 yards · Playoff Hole ${holeNum}</div>
+  </div>
+  <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
+    <div id="ph-play-panel">
+      ${PH_PLAY.pid&&PH_PLAY.holeState?'':'<div class="empty-state" style="padding:24px;"><p>Select a player below to play their playoff hole.</p></div>'}
+    </div>
+    <div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="background:var(--flag-red);color:#fff;padding:10px 16px;font-family:\'Oswald\',sans-serif;font-size:13px;letter-spacing:0.05em;">PLAYOFF STANDINGS · HOLE ${holeNum}</div>
+        <div style="padding:12px;">
+          ${tiedPlayers.map(p=>{
+            const hScores=ph.scores[p.id]||[];
+            const played=hScores.length>=holeNum;
+            const thisScore=played?hScores[holeNum-1]:null;
+            const isActive=PH_PLAY.pid===p.id;
+            return`<div style="display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line);${isActive?'background:rgba(217,161,59,0.12);':''}">
+              <span style="width:28px;height:28px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:\'Barlow Condensed\',sans-serif;">${initialsOf(p.name)}</span>
+              <span style="flex:1;font-size:13px;">${escapeHTML(p.name)}</span>
+              ${played?`<span class="num" style="font-size:16px;color:${thisScore<4?'var(--turf-700)':thisScore>4?'var(--flag-red)':'var(--ink-900)'};">${thisScore}</span><span style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;color:var(--ink-500);margin-left:4px;">${holeResultWord(thisScore,4)}</span>`
+              :`<button class="btn amber btn-sm" data-ph-select="${p.id}">Play Hole</button>`}
+              <button class="btn ghost btn-sm" data-ph-simulate="${p.id}" style="border-color:var(--board-amber);color:#7a5a0a;"${played?'disabled':''}>Simulate</button>
+            </div>`;
+          }).join('')}
+          ${needToPlay.length===0?`<div style="padding:12px;"><button class="btn amber" id="ph-resolve-btn" style="width:100%;">Resolve Playoff — All Played</button></div>`:''}
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  if(PH_PLAY.pid&&PH_PLAY.holeState){
+    renderPHHoleControl(defId,holeNum,PH_PLAY.pid,holeDef);
+  }
+
+  el.querySelectorAll('[data-ph-select]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      PH_PLAY.pid=btn.dataset.phSelect;
+      PH_PLAY.holeState=newHoleState(holeDef);
+      renderPlayoffHoleView(el,defId);
+    });
+  });
+
+  el.querySelectorAll('[data-ph-simulate]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const pid=btn.dataset.phSimulate;
+      const p=getPlayer(pid);if(!p)return;
+      const hs=simulateFullHole(holeDef,effectiveAttrs(p));
+      if(!inst.playoffHole.scores[pid])inst.playoffHole.scores[pid]=[];
+      while(inst.playoffHole.scores[pid].length<holeNum-1)inst.playoffHole.scores[pid].push(4);
+      inst.playoffHole.scores[pid][holeNum-1]=hs.strokes;
+      if(PH_PLAY.pid===pid){PH_PLAY.pid=null;PH_PLAY.holeState=null;}
+      saveState();showToast(`${p.name} scores ${hs.strokes} on the playoff hole.`);
+      renderPlayoffHoleView(el,defId);
+    });
+  });
+
+  document.getElementById('ph-resolve-btn')?.addEventListener('click',()=>{
+    const resolved=resolvePlayoffHoleIfComplete(defId);
+    PH_PLAY.pid=null;PH_PLAY.holeState=null;
+    if(resolved){
+      const inst2=getInstance(defId);const winner=getPlayer(inst2.winnerId);
+      showToast(`${winner?.name||'A player'} wins in sudden death!`);
+      switchView('tournament');
+    } else {
+      showToast(`Still tied! Onto playoff hole ${inst.playoffHole.currentHole}.`);
+      renderPlayoffHoleView(el,defId);
+    }
+  });
+}
+
+function renderPHHoleControl(defId,holeNum,pid,holeDef){
+  const inst=getInstance(defId);const p=getPlayer(pid);const hs=PH_PLAY.holeState;
+  const panel=document.getElementById('ph-play-panel');if(!panel)return;
+  const effAttrs=effectiveAttrs(p);
+  panel.innerHTML=`<div class="card" style="padding:18px;">
+    <div style="background:rgba(168,54,42,0.08);border:1px solid rgba(168,54,42,0.2);border-radius:3px;padding:8px 12px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+      <span style="font-size:16px;">⚡</span>
+      <div>
+        <div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--flag-red);">Sudden Death · Playoff Hole ${holeNum}</div>
+        <div style="font-size:12px;color:var(--ink-700);">${escapeHTML(p.name)} · Par 4 · 430y</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      ${ATTRS.map(a=>`<div style="font-size:10px;background:var(--sand-200);padding:3px 7px;border-radius:3px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;color:var(--turf-800);">${a.label.split(' ')[0]} <span style="color:var(--turf-600);">${effAttrs[a.key]}</span></div>`).join('')}
+    </div>
+    <div style="display:flex;align-items:center;gap:18px;background:var(--sand-200);border-radius:4px;padding:12px 16px;margin-bottom:12px;">
+      <div style="flex:1;"><div class="eyebrow" style="margin-bottom:2px;">Lie</div><div style="font-family:\'Oswald\',sans-serif;font-size:16px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div></div>
+      <div style="flex:1;text-align:center;"><div class="eyebrow" style="margin-bottom:2px;">${hs.lie==='green'?'To Hole':'To Pin'}</div><div class="num" style="font-size:20px;">${hs.lie==='green'?(hs.puttDistanceFt+' ft'):(Math.round(hs.remaining)+' y')}</div></div>
+      <div style="flex:1;text-align:right;"><div class="eyebrow" style="margin-bottom:2px;">Strokes</div><div class="num" style="font-size:20px;">${hs.strokes}</div></div>
+    </div>
+    <div style="max-height:100px;overflow-y:auto;margin-bottom:10px;" class="scrollbar-thin">
+      ${hs.log.slice().reverse().map((l,i)=>`<div style="font-size:12px;padding:5px 8px;background:${i===0?'rgba(63,122,77,0.1)':'transparent'};border-radius:3px;border-left:2px solid ${i===0?'var(--turf-600)':'var(--line)'};">${escapeHTML(l)}</div>`).join('')}
+    </div>
+    <button class="btn amber" id="ph-hit-btn" style="width:100%;padding:13px;" ${hs.holedOut?'disabled':''}>
+      ${hs.strokes===0?'Tee Off':'Hit Next Shot'}
+    </button>
+    ${hs.holedOut?`<button class="btn" id="ph-confirm-btn" style="width:100%;margin-top:8px;padding:12px;">Confirm ${hs.strokes} (${holeResultWord(hs.strokes,4)}) — Done</button>`:''}
+  </div>`;
+
+  document.getElementById('ph-hit-btn')?.addEventListener('click',()=>{
+    playShot(hs,effAttrs);
+    renderPHHoleControl(defId,holeNum,pid,holeDef);
+  });
+  document.getElementById('ph-confirm-btn')?.addEventListener('click',()=>{
+    if(!inst.playoffHole.scores[pid])inst.playoffHole.scores[pid]=[];
+    while(inst.playoffHole.scores[pid].length<holeNum-1)inst.playoffHole.scores[pid].push(4);
+    inst.playoffHole.scores[pid][holeNum-1]=hs.strokes;
+    PH_PLAY.pid=null;PH_PLAY.holeState=null;
+    saveState();
+    renderPlayoffHoleView(document.getElementById('view-tournament'),defId);
+  });
+}
+
+/* ===== RYDER CUP VIEW ===== */
+let RC_UI={matchupId:null,matchIdx:null,isFinal:false,matchHoleState:null};
+
+function renderRyderCupView(el){
+  const rc=STATE.rydercup;if(!rc){el.innerHTML=`<div class="empty-state"><h3>No Ryder Cup active</h3></div>`;return;}
+  const def=getDef(rc.defId);
+
+  if(rc.phase==='complete'){
+    renderRyderCupComplete(el,rc,def);return;
+  }
+
+  if(rc.phase==='final'&&rc.final){
+    renderRyderCupFinal(el,rc,def);return;
+  }
+
+  // Group stage
+  renderRyderCupGroup(el,rc,def);
+}
+
+function capOf(capId){return STATE.fantasy.captains.find(c=>c.id===capId);}
+function teamOf(capId){return STATE.fantasy.teams[capId];}
+
+function rcMatchStatusLabel(m){
+  if(m.status==='pending')return'<span style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;background:rgba(0,0,0,0.06);padding:2px 7px;border-radius:3px;color:var(--ink-500);">NOT STARTED</span>';
+  if(m.status==='complete'){
+    const col=m.result==='H'?'var(--ink-500)':m.result==='A'?'var(--turf-700)':'var(--flag-red)';
+    return`<span style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;background:rgba(0,0,0,0.06);padding:2px 7px;border-radius:3px;color:${col};font-weight:700;">${m.result==='H'?'HALVED':m.result==='A'?'WIN A':'WIN B'}</span>`;
+  }
+  return'<span style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;background:rgba(217,161,59,0.18);padding:2px 7px;border-radius:3px;color:#7a5a0a;">IN PROGRESS</span>';
+}
+
+function renderRyderCupGroup(el,rc,def){
+  const sorted=STATE.fantasy.captains.map(c=>({c,pts:rc.teamPoints[c.id]||0})).sort((a,b)=>b.pts-a.pts);
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow" style="color:var(--flag-red);">🏆 RYDER CUP · ${def.course}</span><h2>Group Stage</h2></div>
+    <div style="display:flex;gap:8px;">
+      ${rcAllGroupDone()?`<button class="btn amber" id="rc-advance-final">Advance to Final ▶</button>`:''}
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+    <div>
+      <!-- Group standings -->
+      <div class="card" style="padding:0;overflow:hidden;margin-bottom:16px;">
+        <div style="background:var(--flag-red);color:#fff;padding:10px 14px;font-family:\'Oswald\',sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;">Group Standings</div>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr style="background:var(--turf-900);color:var(--sand-200);">
+            <th style="${lbTh}text-align:left;">Team</th>
+            <th style="${lbTh}">Pts</th>
+          </tr></thead>
+          <tbody>${sorted.map(({c,pts},i)=>`<tr style="border-bottom:1px solid var(--line);${i===0?'background:rgba(217,161,59,0.08);':''}">
+            <td style="${lbTd}text-align:left;"><span style="display:inline-flex;align-items:center;gap:6px;"><span style="width:10px;height:10px;border-radius:50%;background:${c.color.accent};"></span>${escapeHTML(c.name)}</span></td>
+            <td style="${lbTd}" class="num" style="font-size:18px;color:${c.color.primary};">${pts}</td>
+          </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <!-- Matchup list -->
+      ${rc.groupMatchups.map((mu,mIdx)=>{
+        const cA=capOf(mu.teamA),cB=capOf(mu.teamB);
+        return`<div class="card" style="padding:12px;margin-bottom:10px;border-left:3px solid ${mu.done?'var(--turf-600)':'var(--line)'};">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div style="font-family:\'Oswald\',sans-serif;font-size:14px;"><span style="color:${cA?.color.accent||'inherit'};">${escapeHTML(cA?.name||'?')}</span> <span style="color:var(--ink-500);font-size:12px;">vs</span> <span style="color:${cB?.color.accent||'inherit'};">${escapeHTML(cB?.name||'?')}</span></div>
+            <span style="font-size:11px;font-family:\'Barlow Condensed\',sans-serif;color:var(--ink-500);">Matchup ${mIdx+1}</span>
+          </div>
+          ${mu.matches.map((m,mI)=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line);">
+            <span style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;text-transform:uppercase;width:72px;color:var(--ink-500);">${m.type==='foursomes'?'Foursomes':m.type==='fourball'?'Four-Ball':'Singles'}</span>
+            ${rcMatchStatusLabel(m)}
+            <div style="margin-left:auto;display:flex;gap:5px;">
+              ${m.status!=='complete'?`
+                <button class="btn ghost btn-sm" style="border-color:var(--board-amber);color:#7a5a0a;" data-rc-sim="group" data-mu="${mIdx}" data-mi="${mI}">Simulate</button>
+                <button class="btn btn-sm" data-rc-play="group" data-mu="${mIdx}" data-mi="${mI}">▶ Play</button>
+              `:''}
+            </div>
+          </div>`).join('')}
+          ${mu.done?'':mu.matches.every(m=>m.status==='complete')?`<div style="padding:8px 0;"><button class="btn amber btn-sm" data-rc-tally="${mIdx}" style="width:100%;">Record Matchup Result</button></div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div id="rc-match-panel">
+      <div class="empty-state" style="padding:24px;"><p>Click Play on a match to start it, or Simulate to auto-resolve.</p></div>
+    </div>
+  </div>`;
+
+  document.getElementById('rc-advance-final')?.addEventListener('click',()=>{rcAdvanceToFinal();renderRyderCupView(el);});
+
+  el.querySelectorAll('[data-rc-tally]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const muIdx=+btn.dataset.rcTally;
+      rcTallyMatchup(rc.groupMatchups[muIdx]);
+      saveState();renderRyderCupView(el);
+    });
+  });
+
+  el.querySelectorAll('[data-rc-sim]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const muIdx=+btn.dataset.mu,miIdx=+btn.dataset.mi;
+      const mu=rc.groupMatchups[muIdx];const m=mu.matches[miIdx];
+      const teamA=teamOf(mu.teamA),teamB=teamOf(mu.teamB);
+      const pidA=teamA?.playerIds||[],pidB=teamB?.playerIds||[];
+      // Pick players for this match type based on not already assigned in this matchup
+      const usedA=new Set(mu.matches.filter((_,i)=>i<miIdx&&mu.matches[i].lineupA).flatMap(x=>x.lineupA));
+      const usedB=new Set(mu.matches.filter((_,i)=>i<miIdx&&mu.matches[i].lineupB).flatMap(x=>x.lineupB));
+      const availA=pidA.filter(p=>!usedA.has(p));
+      const availB=pidB.filter(p=>!usedB.has(p));
+      const needA=m.type==='singles'?1:2,needB=needA;
+      m.lineupA=availA.slice(0,needA);m.lineupB=availB.slice(0,needB);
+      m.result=rcSimulateMatch(m,m.lineupA,m.lineupB,9,m.type);
+      m.status='complete';saveState();
+      showToast(`${m.type} match simulated — ${m.result==='H'?'Halved':m.result==='A'?capOf(mu.teamA)?.name+' wins':capOf(mu.teamB)?.name+' wins'}`);
+      // Auto-tally if all matches done
+      if(mu.matches.every(x=>x.status==='complete')&&!mu.done)rcTallyMatchup(mu);
+      saveState();renderRyderCupView(el);
+    });
+  });
+
+  el.querySelectorAll('[data-rc-play]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const muIdx=+btn.dataset.mu,miIdx=+btn.dataset.mi;
+      openRCMatchPlayModal(el,muIdx,miIdx,false);
+    });
+  });
+}
+
+function renderRyderCupFinal(el,rc,def){
+  const f=rc.final;const cA=capOf(f.teamA),cB=capOf(f.teamB);
+  rcCheckFinalDone();
+  if(rc.phase==='complete'){renderRyderCupComplete(el,rc,def);return;}
+  el.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow" style="color:var(--flag-red);">🏆 RYDER CUP FINAL</span><h2>${escapeHTML(cA?.name||'?')} vs ${escapeHTML(cB?.name||'?')}</h2></div>
+    <div class="num" style="font-size:18px;">${f.ptsA} – ${f.ptsB}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:start;">
+    <div>
+      <div class="card" style="padding:14px;margin-bottom:14px;background:linear-gradient(135deg,rgba(168,54,42,0.06),transparent);border-top:3px solid var(--flag-red);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="text-align:center;flex:1;"><div style="font-family:\'Oswald\',sans-serif;font-size:18px;color:${cA?.color.primary||'inherit'};">${escapeHTML(cA?.name||'?')}</div><div class="num" style="font-size:36px;">${f.ptsA}</div></div>
+          <div style="font-size:20px;color:var(--ink-500);font-family:\'Barlow Condensed\',sans-serif;">–</div>
+          <div style="text-align:center;flex:1;"><div style="font-family:\'Oswald\',sans-serif;font-size:18px;color:${cB?.color.primary||'inherit'};">${escapeHTML(cB?.name||'?')}</div><div class="num" style="font-size:36px;">${f.ptsB}</div></div>
+        </div>
+        <div style="font-size:11px;text-align:center;color:var(--ink-500);font-family:\'Barlow Condensed\',sans-serif;">First to 3.5 wins the Cup · 6 singles matches · 18 holes each</div>
+      </div>
+      ${f.matches.map((m,mI)=>{
+        return`<div class="card" style="padding:12px;margin-bottom:8px;border-left:3px solid ${m.status==='complete'?'var(--turf-600)':'var(--line)'};">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:11px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);width:70px;">Match ${mI+1}</span>
+            ${m.lineupA[0]?`<span style="font-size:12px;">${escapeHTML(getPlayer(m.lineupA[0])?.name||'?')}</span>`:'<span style="font-size:11px;color:var(--ink-500);">TBD</span>'}
+            <span style="font-size:10px;color:var(--ink-500);">vs</span>
+            ${m.lineupB[0]?`<span style="font-size:12px;">${escapeHTML(getPlayer(m.lineupB[0])?.name||'?')}</span>`:'<span style="font-size:11px;color:var(--ink-500);">TBD</span>'}
+            ${rcMatchStatusLabel(m)}
+            <div style="margin-left:auto;display:flex;gap:5px;">
+              ${m.status!=='complete'?`
+                <button class="btn ghost btn-sm" style="border-color:var(--board-amber);color:#7a5a0a;" data-rcf-sim="${mI}">Simulate</button>
+                <button class="btn btn-sm" data-rcf-play="${mI}">▶ Play</button>
+              `:''}
+            </div>
+          </div>
+        </div>`;}).join('')}
+    </div>
+    <div id="rc-final-panel">
+      <div class="empty-state" style="padding:24px;"><p>Play or simulate each match. First to 3.5 points wins the Ryder Cup.</p></div>
+    </div>
+  </div>`;
+
+  el.querySelectorAll('[data-rcf-sim]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const mI=+btn.dataset.rcfSim;const m=f.matches[mI];
+      const teamA=teamOf(f.teamA),teamB=teamOf(f.teamB);
+      const usedA=new Set(f.matches.filter((_,i)=>i<mI).flatMap(x=>x.lineupA));
+      const usedB=new Set(f.matches.filter((_,i)=>i<mI).flatMap(x=>x.lineupB));
+      const availA=(teamA?.playerIds||[]).filter(p=>!usedA.has(p));
+      const availB=(teamB?.playerIds||[]).filter(p=>!usedB.has(p));
+      m.lineupA=[availA[0]||teamA?.playerIds[0]];m.lineupB=[availB[0]||teamB?.playerIds[0]];
+      m.result=rcSimulateMatch(m,m.lineupA,m.lineupB,18,'singles');
+      m.status='complete';
+      rcCheckFinalDone();saveState();
+      if(rc.phase==='complete'){renderRyderCupComplete(el,rc,def);return;}
+      renderRyderCupFinal(el,rc,def);
+    });
+  });
+
+  el.querySelectorAll('[data-rcf-play]').forEach(btn=>{
+    btn.addEventListener('click',()=>{openRCMatchPlayModal(el,null,+btn.dataset.rcfPlay,true);});
+  });
+}
+
+function renderRyderCupComplete(el,rc,def){
+  const winCap=capOf(rc.winner),runCap=capOf(rc.runnerUp);
+  el.innerHTML=`<div style="text-align:center;padding:40px 20px;">
+    <div style="font-size:48px;margin-bottom:10px;">🏆</div>
+    <div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--board-amber);margin-bottom:6px;">Season ${rc.season} Ryder Cup Champion</div>
+    <h2 style="font-size:36px;color:var(--turf-900);">${escapeHTML(winCap?.name||'?')}</h2>
+    <div style="font-size:14px;color:var(--ink-500);margin-bottom:24px;">defeated ${escapeHTML(runCap?.name||'?')} in the Final · Winner's share: $100M split across the team</div>
+    <div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-bottom:24px;">
+      <div style="background:rgba(217,161,59,0.12);border:1px solid rgba(217,161,59,0.4);padding:14px 22px;border-radius:4px;"><div style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;text-transform:uppercase;color:var(--board-amber);margin-bottom:4px;">Winners</div><div style="font-family:\'Oswald\',sans-serif;font-size:18px;">${escapeHTML(winCap?.name||'?')}</div><div style="font-size:12px;color:var(--turf-600);">$100M purse</div></div>
+      <div style="background:rgba(0,0,0,0.05);border:1px solid var(--line);padding:14px 22px;border-radius:4px;"><div style="font-size:10px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);margin-bottom:4px;">Runners-Up</div><div style="font-family:\'Oswald\',sans-serif;font-size:18px;">${escapeHTML(runCap?.name||'?')}</div><div style="font-size:12px;color:var(--ink-500);">$25M purse</div></div>
+    </div>
+    <div style="display:flex;justify-content:center;gap:12px;">
+      <button class="btn ghost" id="rc-back-schedule">Back to Schedule</button>
+    </div>
+  </div>`;
+  document.getElementById('rc-back-schedule')?.addEventListener('click',()=>switchView('schedule'));
+}
+
+/* ===== RYDER CUP MATCH PLAY MODAL ===== */
+let RCM={muIdx:null,miIdx:null,isFinal:false,
+  pA:[],pB:[],matchType:null,totalHoles:9,
+  holeNum:1,matchScoreA:0,matchScoreB:0,
+  // Per-hole states: foursomes=1 hs each side, fourball=2 each, singles=1 each
+  hsA:null,hsB:null,hsA2:null,hsB2:null,
+  phase:'A',  // whose turn: A|A2|B|B2 (fourball) or A|B (foursomes/singles)
+  holesPlayed:[],done:false,winner:null,
+  alternateShooterA:true, // foursomes: true=pA[0] hits, false=pA[1]
+  alternateShooterB:true,
+};
+
+function openRCMatchPlayModal(viewEl,muIdx,miIdx,isFinal){
+  const rc=STATE.rydercup;
+  let mu,m,teamAId,teamBId;
+  if(isFinal){m=rc.final.matches[miIdx];teamAId=rc.final.teamA;teamBId=rc.final.teamB;}
+  else{mu=rc.groupMatchups[muIdx];m=mu.matches[miIdx];teamAId=mu.teamA;teamBId=mu.teamB;}
+
+  const teamA=teamOf(teamAId),teamB=teamOf(teamBId);
+  const usedA=isFinal
+    ?new Set(rc.final.matches.filter((_,i)=>i<miIdx).flatMap(x=>x.lineupA))
+    :new Set((mu.matches||[]).filter((_,i)=>i<miIdx).flatMap(x=>x.lineupA));
+  const usedB=isFinal
+    ?new Set(rc.final.matches.filter((_,i)=>i<miIdx).flatMap(x=>x.lineupB))
+    :new Set((mu.matches||[]).filter((_,i)=>i<miIdx).flatMap(x=>x.lineupB));
+  const availA=(teamA?.playerIds||[]).filter(p=>!usedA.has(p));
+  const availB=(teamB?.playerIds||[]).filter(p=>!usedB.has(p));
+  const need=m.type==='singles'?1:2;
+  m.lineupA=availA.slice(0,need);m.lineupB=availB.slice(0,need);
+
+  RCM={muIdx,miIdx,isFinal,pA:m.lineupA,pB:m.lineupB,matchType:m.type,
+    totalHoles:isFinal?18:9,holeNum:1,matchScoreA:0,matchScoreB:0,
+    hsA:newHoleState({hole:1,par:4,yards:430}),
+    hsB:newHoleState({hole:1,par:4,yards:430}),
+    hsA2:m.type==='fourball'?newHoleState({hole:1,par:4,yards:430}):null,
+    hsB2:m.type==='fourball'?newHoleState({hole:1,par:4,yards:430}):null,
+    phase:'A',holesPlayed:[],done:false,winner:null,
+    alternateShooterA:true,alternateShooterB:true,
+  };
+  m.status='in_progress';saveState();
+  renderRCMatchModal(viewEl);
+}
+
+function renderRCMatchModal(viewEl){
+  const rc=STATE.rydercup;const rcm=RCM;
+  let mu=null,m=null,teamAId,teamBId;
+  if(rcm.isFinal){m=rc.final.matches[rcm.miIdx];teamAId=rc.final.teamA;teamBId=rc.final.teamB;}
+  else{mu=rc.groupMatchups[rcm.muIdx];m=mu.matches[rcm.miIdx];teamAId=mu.teamA;teamBId=mu.teamB;}
+  const cA=capOf(teamAId),cB=capOf(teamBId);
+  const holeDef={hole:rcm.holeNum,par:4,yards:430};
+
+  // Match status string
+  const diff=rcm.matchScoreA-rcm.matchScoreB;
+  const rem=rcm.totalHoles-rcm.holeNum+1;
+  let matchStatus='ALL SQUARE';
+  if(diff>0)matchStatus=`${cA?.name} ${Math.abs(diff)} UP`;
+  else if(diff<0)matchStatus=`${cB?.name} ${Math.abs(diff)} UP`;
+  if(rcm.done){matchStatus=rcm.winner==='A'?`${cA?.name} WINS`:rcm.winner==='B'?`${cB?.name} WINS`:'HALVED';}
+
+  const matchPanel=document.getElementById(rcm.isFinal?'rc-final-panel':'rc-match-panel');
+  if(!matchPanel)return;
+
+  if(rcm.done){
+    matchPanel.innerHTML=`<div class="card" style="padding:20px;text-align:center;border-top:4px solid var(--board-amber);">
+      <div style="font-size:11px;font-family:\'Barlow Condensed\',sans-serif;text-transform:uppercase;letter-spacing:0.1em;color:var(--board-amber);margin-bottom:6px;">Match Result</div>
+      <h3 style="font-size:22px;">${matchStatus}</h3>
+      <div style="font-size:12px;color:var(--ink-500);margin-bottom:18px;">${rcm.matchScoreA} – ${rcm.matchScoreB} after ${rcm.holeNum-1} holes</div>
+      <button class="btn amber" id="rc-confirm-result" style="width:100%;">Record Result & Continue</button>
+    </div>`;
+    document.getElementById('rc-confirm-result')?.addEventListener('click',()=>{
+      m.result=rcm.winner;m.status='complete';
+      if(!rcm.isFinal){
+        if(mu.matches.every(x=>x.status==='complete')&&!mu.done)rcTallyMatchup(mu);
+      } else {
+        rcCheckFinalDone();
+      }
+      saveState();
+      renderRyderCupView(document.getElementById('view-tournament'));
+    });
+    return;
+  }
+
+  // Determine active shooter info
+  let activePlayerA,activePlayerB,attrsA,attrsB;
+  if(rcm.matchType==='foursomes'){
+    activePlayerA=getPlayer(rcm.alternateShooterA?rcm.pA[0]:rcm.pA[1]);
+    activePlayerB=getPlayer(rcm.alternateShooterB?rcm.pB[0]:rcm.pB[1]);
+    attrsA=activePlayerA?effectiveAttrs(activePlayerA):{};
+    attrsB=activePlayerB?effectiveAttrs(activePlayerB):{};
+  } else if(rcm.matchType==='fourball'){
+    activePlayerA=getPlayer(rcm.pA[0]);const activePlayerA2=getPlayer(rcm.pA[1]);
+    activePlayerB=getPlayer(rcm.pB[0]);const activePlayerB2=getPlayer(rcm.pB[1]);
+    attrsA=activePlayerA?effectiveAttrs(activePlayerA):{};
+    attrsB=activePlayerB?effectiveAttrs(activePlayerB):{};
+  } else {
+    activePlayerA=getPlayer(rcm.pA[0]);activePlayerB=getPlayer(rcm.pB[0]);
+    attrsA=activePlayerA?effectiveAttrs(activePlayerA):{};
+    attrsB=activePlayerB?effectiveAttrs(activePlayerB):{};
+  }
+
+  function playerCard(p,attrs,hs,side,label){
+    if(!p||!hs)return'';
+    const holed=hs.holedOut;
+    return`<div style="background:var(--sand-200);border-radius:4px;padding:10px 12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <span style="width:24px;height:24px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:\'Barlow Condensed\',sans-serif;">${initialsOf(p.name)}</span>
+        <div style="flex:1;"><div style="font-size:12px;font-weight:600;">${escapeHTML(p.name)}</div><div style="font-size:10px;color:var(--ink-500);">${label}</div></div>
+        <div class="num" style="font-size:16px;">${hs.strokes} ${holed?'✅':''}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">
+        ${ATTRS.slice(0,4).map(a=>`<span style="font-size:9px;background:rgba(255,255,255,0.7);padding:2px 5px;border-radius:2px;font-family:\'Barlow Condensed\',sans-serif;font-weight:700;">${a.label.split(' ')[0]} ${attrs[a.key]||0}</span>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--ink-600);padding:4px 6px;background:rgba(255,255,255,0.6);border-radius:3px;">${hs.log.length?escapeHTML(hs.log[hs.log.length-1]):'Ready to tee off'}</div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <button class="btn amber btn-sm" id="rc-hit-${side}" style="flex:1;" ${holed?'disabled':''}>Hit Shot</button>
+        ${holed?`<button class="btn btn-sm" id="rc-confirm-hole-${side}" style="flex:1;">Confirm ${hs.strokes}</button>`:''}
+      </div>
+    </div>`;
+  }
+
+  matchPanel.innerHTML=`<div class="card" style="padding:14px;">
+    <div style="text-align:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--line);">
+      <div style="font-family:\'Barlow Condensed\',sans-serif;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--ink-500);margin-bottom:3px;">${rcm.matchType.toUpperCase()} · HOLE ${rcm.holeNum} of ${rcm.totalHoles} · PAR 4 · 430Y</div>
+      <div style="font-family:\'Oswald\',sans-serif;font-size:20px;color:${Math.abs(diff)>0?(diff>0?cA?.color.primary:cB?.color.primary):'var(--ink-700)'};">${matchStatus}</div>
+    </div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-bottom:12px;">
+      <button class="btn ghost btn-sm" style="border-color:var(--board-amber);color:#7a5a0a;" id="rc-sim-hole">⚡ Simulate This Hole</button>
+      <button class="btn ghost btn-sm" id="rc-concede-hole">Concede Hole</button>
+    </div>
+    ${playerCard(activePlayerA,attrsA,rcm.hsA,'A',`Team ${cA?.name} · ${rcm.matchType==='foursomes'?(rcm.alternateShooterA?'Hitting':'Waiting'):'Playing'}`)}
+    ${rcm.matchType==='fourball'?playerCard(getPlayer(rcm.pA[1]),rcm.pA[1]?effectiveAttrs(getPlayer(rcm.pA[1])):{},rcm.hsA2,'A2',`Team ${cA?.name} · Playing`):''}
+    <div style="text-align:center;padding:6px 0;font-size:11px;color:var(--ink-500);font-family:\'Barlow Condensed\',sans-serif;">── vs ──</div>
+    ${playerCard(activePlayerB,attrsB,rcm.hsB,'B',`Team ${cB?.name} · ${rcm.matchType==='foursomes'?(rcm.alternateShooterB?'Hitting':'Waiting'):'Playing'}`)}
+    ${rcm.matchType==='fourball'?playerCard(getPlayer(rcm.pB[1]),rcm.pB[1]?effectiveAttrs(getPlayer(rcm.pB[1])):{},rcm.hsB2,'B2',`Team ${cB?.name} · Playing`):''}
+  </div>`;
+
+  // Hit handlers
+  const hitFor=(side)=>{
+    const player=side==='A'?activePlayerA:side==='A2'?getPlayer(rcm.pA[1]):side==='B'?activePlayerB:getPlayer(rcm.pB[1]);
+    const hs=side==='A'?rcm.hsA:side==='A2'?rcm.hsA2:side==='B'?rcm.hsB:rcm.hsB2;
+    if(!player||!hs||hs.holedOut)return;
+    playShot(hs,effectiveAttrs(player));
+    // foursomes: alternate after each shot
+    if(rcm.matchType==='foursomes'){
+      if(side==='A')rcm.alternateShooterA=!rcm.alternateShooterA;
+      else if(side==='B')rcm.alternateShooterB=!rcm.alternateShooterB;
+    }
+    renderRCMatchModal(viewEl);
+  };
+  ['A','A2','B','B2'].forEach(s=>{document.getElementById(`rc-hit-${s}`)?.addEventListener('click',()=>hitFor(s));});
+
+  // Confirm hole handlers
+  const confirmFor=(side)=>{
+    const hs=side==='A'?rcm.hsA:side==='A2'?rcm.hsA2:side==='B'?rcm.hsB:rcm.hsB2;
+    if(hs)hs._confirmed=true;
+    rcTryResolveHole(viewEl,cA,cB);
+  };
+  ['A','A2','B','B2'].forEach(s=>{document.getElementById(`rc-confirm-hole-${s}`)?.addEventListener('click',()=>confirmFor(s));});
+
+  document.getElementById('rc-sim-hole')?.addEventListener('click',()=>{
+    [rcm.hsA,rcm.hsB,rcm.hsA2,rcm.hsB2].forEach((hs,i)=>{
+      if(!hs)return;const pid=[rcm.pA[0],rcm.pB[0],rcm.pA[1],rcm.pB[1]][i];
+      const p=getPlayer(pid);if(!p)return;
+      if(!hs.holedOut){while(!hs.holedOut)playShot(hs,effectiveAttrs(p));}
+      hs._confirmed=true;
+    });
+    rcTryResolveHole(viewEl,cA,cB);
+  });
+
+  document.getElementById('rc-concede-hole')?.addEventListener('click',()=>{
+    // Concede to team B (current player's opponent wins the hole)
+    rcm.matchScoreB++;
+    rcm.holesPlayed.push({holeNum:rcm.holeNum,winner:'B',conceded:true});
+    rcAdvanceRCHole(viewEl);
+  });
+}
+
+function rcTryResolveHole(viewEl,cA,cB){
+  const rcm=RCM;
+  // Check if all active players have confirmed
+  const allConfirmed=(()=>{
+    if(rcm.matchType==='foursomes')return rcm.hsA?._confirmed&&rcm.hsB?._confirmed;
+    if(rcm.matchType==='fourball')return rcm.hsA?._confirmed&&rcm.hsA2?._confirmed&&rcm.hsB?._confirmed&&rcm.hsB2?._confirmed;
+    return rcm.hsA?._confirmed&&rcm.hsB?._confirmed;
+  })();
+  if(!allConfirmed){renderRCMatchModal(viewEl);return;}
+
+  // Calculate hole result
+  let scoreA,scoreB;
+  if(rcm.matchType==='fourball'){
+    scoreA=Math.min(rcm.hsA?.strokes||99,rcm.hsA2?.strokes||99);
+    scoreB=Math.min(rcm.hsB?.strokes||99,rcm.hsB2?.strokes||99);
+  } else {
+    scoreA=rcm.hsA?.strokes||99;scoreB=rcm.hsB?.strokes||99;
+  }
+
+  let holeWinner=null;
+  if(scoreA<scoreB){rcm.matchScoreA++;holeWinner='A';}
+  else if(scoreB<scoreA){rcm.matchScoreB++;holeWinner='B';}
+  rcm.holesPlayed.push({holeNum:rcm.holeNum,winner:holeWinner,scoreA,scoreB});
+  showToast(`Hole ${rcm.holeNum}: ${scoreA} vs ${scoreB} — ${holeWinner?('Team '+(holeWinner==='A'?cA?.name:cB?.name)+' wins'):'Halved'}`);
+  rcAdvanceRCHole(viewEl);
+}
+
+function rcAdvanceRCHole(viewEl){
+  const rcm=RCM;
+  const holesLeft=rcm.totalHoles-rcm.holeNum;
+  const diff=rcm.matchScoreA-rcm.matchScoreB;
+  // Match over if someone leads by more than holes left
+  if(Math.abs(diff)>holesLeft||rcm.holeNum>=rcm.totalHoles){
+    rcm.done=true;
+    rcm.winner=diff>0?'A':diff<0?'B':'H';
+    renderRCMatchModal(viewEl);return;
+  }
+  rcm.holeNum++;
+  const holeDef={hole:rcm.holeNum,par:4,yards:430};
+  rcm.hsA=newHoleState(holeDef);rcm.hsB=newHoleState(holeDef);
+  if(rcm.matchType==='fourball'){rcm.hsA2=newHoleState(holeDef);rcm.hsB2=newHoleState(holeDef);}
+  // Foursomes: swap who starts (the person who finished last hole putts out then opponent starts)
+  rcm.alternateShooterA=true;rcm.alternateShooterB=true;
+  renderRCMatchModal(viewEl);
+}
+const scTd="padding:5px 3px;min-width:26px;border:1px solid var(--line);";
+const scTdLabel="padding:5px 6px;font-size:10px;text-transform:uppercase;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;white-space:nowrap;";
+
 function scorecardHTML(def,scoreArr,currentHoleIdx){
   const front=def.holes.slice(0,9),back=def.holes.slice(9,18);
   function rowFor(holes,offset){
@@ -1989,8 +2956,6 @@ function scorecardHTML(def,scoreArr,currentHoleIdx){
     <table style="border-collapse:collapse;width:100%;font-size:12px;text-align:center;margin-top:6px;"><tbody>${rowFor(back,9)}</tbody></table>
   </div>`;
 }
-const scTd="padding:5px 3px;min-width:26px;border:1px solid var(--line);";
-const scTdLabel="padding:5px 6px;font-size:10px;text-transform:uppercase;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;white-space:nowrap;";
 
 /* ===== NEWS VIEW ===== */
 function renderNews(){
@@ -2013,6 +2978,7 @@ function renderNews(){
     const poy=getPlayer(latestAward.playerOfYear);
     const fedex=getPlayer(latestAward.fedexWinner);
     const mi=getPlayer(latestAward.mostImproved);
+    const wrNo1=getPlayer(latestAward.worldNo1);
     return`<div class="card" style="padding:20px;margin-bottom:24px;border-top:4px solid var(--board-amber);background:linear-gradient(135deg,rgba(217,161,59,0.07),transparent);">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
         <span style="font-size:22px;">🎖️</span>
@@ -2021,7 +2987,7 @@ function renderNews(){
           <h3 style="font-size:18px;color:var(--turf-900);margin-top:2px;">Honours Board</h3>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
         ${poy?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
           <div style="font-size:24px;margin-bottom:6px;">🏅</div>
           <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">Player of the Year</div>
@@ -2033,13 +2999,19 @@ function renderNews(){
           <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">FedEx Cup Winner</div>
           <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(fedex.name)}</div>
         </div>`:''}
+        ${wrNo1?`<div style="background:rgba(63,122,77,0.06);border:1px solid rgba(63,122,77,0.25);border-radius:4px;padding:14px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">🌍</div>
+          <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">World No. 1</div>
+          <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(wrNo1.name)}</div>
+          <div style="font-size:11px;color:var(--turf-600);margin-top:3px;">${(STATE.worldRanking[wrNo1.id]||{}).pts||0} WR pts</div>
+        </div>`:''}
         ${mi?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
           <div style="font-size:24px;margin-bottom:6px;">📈</div>
           <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">Most Improved</div>
           <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(mi.name)}</div>
           <div style="font-size:11px;color:var(--turf-600);margin-top:3px;">+${latestAward.mostImprovedDelta} pts vs last season</div>
         </div>`:''}
-        ${!poy&&!fedex&&!mi?`<div style="color:var(--ink-500);font-size:13px;">Complete a season to see awards.</div>`:''}
+        ${!poy&&!fedex&&!mi&&!wrNo1?`<div style="color:var(--ink-500);font-size:13px;">Complete a season to see awards.</div>`:''}
       </div>
     </div>`;
   }
@@ -2118,9 +3090,12 @@ function renderCurrentView(view){
 }
 function refreshTopbar(){
   document.getElementById('season-label-top').textContent=`Season ${STATE.seasonNumber} · ${STATE.players.length} players`;
-  document.getElementById('tab-tournament').style.display=STATE.activeTournamentId?'':'none';
+  document.getElementById('tab-tournament').style.display=(STATE.activeTournamentId||STATE.rydercup?.phase==='group'||STATE.rydercup?.phase==='final')?'':'none';
   const rows=STATE.players.map(p=>({name:p.name,pts:(STATE.standings[p.id]||{}).points||0})).sort((a,b)=>b.pts-a.pts);
-  document.getElementById('points-leader-pill').textContent=rows.length&&rows[0].pts>0?`${rows[0].name} · ${rows[0].pts.toLocaleString()} pts`:'No points yet';
+  const wrRows=getWorldRankings();
+  const wrNo1=wrRows.length&&wrRows[0].pts>0?wrRows[0].player:null;
+  const tourLeader=rows.length&&rows[0].pts>0?`${rows[0].name} · ${rows[0].pts.toLocaleString()} pts`:'No points yet';
+  document.getElementById('points-leader-pill').textContent=wrNo1?`🌍 ${wrNo1.name} WR#1`:tourLeader;
 }
 function wireNav(){
   document.querySelectorAll('.nav-tab').forEach(tab=>tab.addEventListener('click',()=>switchView(tab.dataset.view)));
