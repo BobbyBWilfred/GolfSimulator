@@ -218,7 +218,7 @@ const SAVE_VERSION=3;
 
 // Point this at wherever server.js is running. Override by setting
 // window.TEE_SHEET_API_BASE before this script runs, e.g. from a different port/host.
-const API_BASE = '/api';
+const API_BASE=(window.TEE_SHEET_API_BASE||'http://localhost:4000/api');
 const PROFILE_ID=(function(){
   // One save slot per browser by default — change this if you want multiple
   // independent tours against the same server (e.g. multiple users).
@@ -262,7 +262,7 @@ function normalizeState(p){
   p.players=p.players||[];
   p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
-  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};
+  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};
   if(!p.fantasy)p.fantasy={drafted:false,captains:[],teams:{},standings:{},teamEventResults:{}};
   return p;
 }
@@ -601,6 +601,36 @@ function finishTournamentIfDone(defId){
     if(row.position===1)st.wins++;
     st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
   });
+
+  // Record major champion in hall of fame
+  if(def.major&&finishers.length){
+    const winner=finishers[0];
+    if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
+    STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:winner.playerId,toPar:winner.toPar,strokes:winner.strokes});
+  }
+
+  // Death hole: if top 2 finishers are tied in strokes, mark it as tied for UI
+  if(finishers.length>=2&&finishers[0].toPar===finishers[1].toPar){
+    inst.deathHoleTied=true;
+    // Simulate a sudden-death playoff hole: each tied player plays a par-4, winner is lowest score
+    const tiedPids=finishers.filter(r=>r.toPar===finishers[0].toPar).map(r=>r.playerId);
+    const playoffHoleDef={hole:'P',par:4,yards:430};
+    let bestScore=99,bestPid=null;
+    tiedPids.forEach(pid=>{
+      const p=getPlayer(pid);if(!p)return;
+      const hs=simulateFullHole(playoffHoleDef,effectiveAttrs(p));
+      if(hs.strokes<bestScore){bestScore=hs.strokes;bestPid=pid;}
+    });
+    if(bestPid){
+      inst.winnerId=bestPid;
+      inst.deathHoleWinner=bestPid;
+      inst.deathHoleScore=bestScore;
+      // Swap the winner in leaderboard cache
+      const wRow=lb.find(r=>r.playerId===bestPid);
+      if(wRow)wRow.deathHoleWin=true;
+    }
+  }
+
   // missed cut still gets event credit
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
@@ -807,6 +837,27 @@ function openProfileModal(pid){
           ${[['Career Events',totalEvents],['Career Wins',totalWins],['Season Points',(st.points||0).toLocaleString()],['Top 10',hist.filter(h=>typeof h.pos==='number'&&h.pos<=10).length]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px;border-radius:4px;text-align:center;"><div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
         </div>
         <p style="font-size:11px;color:var(--ink-500);margin:4px 0 18px;">Career totals carry over every season. Season Points reset to zero at the start of each new season.</p>
+        ${(()=>{
+          // All wins across current season + career history
+          const allWins=[...(st.history||[]),...(career.history||[])].filter(h=>h.pos===1);
+          const fedexPts=(STATE.fedexStandings[p.id]||{}).points||0;
+          const cap=p.salaryCap?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(63,122,77,0.12);color:var(--turf-700);margin-left:8px;">CAP ${formatMoney(p.salaryCap)}</span>`:'';
+          if(!allWins.length&&!fedexPts)return'';
+          return`<div style="margin-bottom:18px;">
+            <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;">🏆 Tournament Wins (${allWins.length})${cap}${fedexPts?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;padding:2px 8px;border-radius:10px;background:rgba(168,54,42,0.1);color:var(--flag-red);margin-left:4px;">FedEx ${fedexPts.toLocaleString()} pts</span>`:''}
+            </div>
+            ${allWins.length===0?`<div style="font-size:12px;color:var(--ink-500);font-style:italic;">No wins yet.</div>`:`
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              ${allWins.map(w=>{const isMajor=STATE.tournamentDefs.find(d=>d.id===w.trnId)?.major||false;const toParTxt=w.toPar===0?'E':w.toPar>0?'+'+w.toPar:w.toPar;return`<div style="display:flex;align-items:center;gap:10px;padding:6px 10px;background:rgba(217,161,59,0.08);border-radius:3px;border-left:3px solid var(--board-amber);">
+                ${isMajor?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:var(--board-amber);color:var(--board-black);padding:1px 5px;border-radius:2px;white-space:nowrap;">MAJOR</span>`:''}
+                <span style="flex:1;font-size:12px;font-family:'Oswald',sans-serif;">${escapeHTML(w.trnName)}</span>
+                <span style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">S${w.season||'?'}</span>
+                <span class="num" style="font-size:12px;color:var(--flag-red);">${toParTxt}</span>
+                <span class="num" style="font-size:11px;color:var(--turf-700);">${formatMoney(w.prize)}</span>
+              </div>`;}).join('')}
+            </div>`}
+          </div>`;
+        })()}
         <div style="margin-bottom:18px;">
           <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">Attributes</div>
           ${ATTRS.map(a=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px;">
@@ -1015,6 +1066,7 @@ function scheduleRowHTML(inst,i){
         ${isMajor?`<span style="background:var(--turf-900);color:var(--board-amber);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">MAJOR</span>`:''}
         ${isTeam?`<span style="background:rgba(156,39,176,0.15);color:#6a1b9a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 TEAM EVENT</span>`:''}
         ${isPlayoff?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">⛳ PLAYOFF · TOP 10</span>`:''}
+        ${def.bigPurse?`<span style="background:rgba(217,161,59,0.18);color:#7a5a0a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">💰 ELEVATED PURSE</span>`:''}
         ${statusBadge(inst.status)}
       </div>
       <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.course} · ${def.location} · ${def.rounds} rounds · $${def.purseM}M purse</div>
@@ -1129,7 +1181,37 @@ function renderStandings(){
           </tr>`;}).join('')}</tbody>
       </table>
     </div>
-  </div>`:''}`;
+  </div>`:''}
+  ${(()=>{
+    const majorDefs=STATE.tournamentDefs.filter(d=>d.major);
+    const anyChamps=majorDefs.some(d=>(STATE.majorChampions[d.id]||[]).length>0);
+    if(!anyChamps)return'';
+    return`<div style="margin-bottom:20px;">
+      <div class="section-head" style="margin-top:8px;">
+        <div><span class="eyebrow">All-Time</span><h2>Majors Champions Hall</h2></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+        ${majorDefs.map(d=>{
+          const champs=(STATE.majorChampions[d.id]||[]).slice().reverse();
+          return`<div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--board-amber);">
+            <div style="background:var(--turf-900);color:var(--paper-50);padding:10px 14px;">
+              <div style="font-family:'Oswald',sans-serif;font-size:14px;letter-spacing:0.03em;">${escapeHTML(d.name)}</div>
+              <div style="font-size:10px;color:var(--sand-300);font-family:'Barlow Condensed',sans-serif;">${d.course}</div>
+            </div>
+            ${champs.length===0?`<div style="padding:14px;font-size:12px;color:var(--ink-500);font-style:italic;">No champion yet</div>`:`
+            <div style="padding:10px 0;">
+              ${champs.map((c,i)=>{const pl=getPlayer(c.playerId);const toParTxt=c.toPar===0?'E':c.toPar>0?'+'+c.toPar:c.toPar;return`<div style="display:flex;align-items:center;gap:10px;padding:7px 14px;border-bottom:${i<champs.length-1?'1px solid var(--line)':'none'};">
+                <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(pl?.name||'?')};color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${pl?initialsOf(pl.name):'?'}</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-family:'Oswald',sans-serif;">${i===0?'🏆 ':''} ${pl?escapeHTML(pl.name):'Unknown'}</div>
+                  <div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">S${c.season} · ${toParTxt} (${c.strokes} strokes)</div>
+                </div>
+              </div>`}).join('')}
+            </div>`}
+          </div>`;}).join('')}
+      </div>
+    </div>`;
+  })()}`;
   document.getElementById('view-history-btn')?.addEventListener('click',renderHistoryModal);
   el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
 }
@@ -1511,14 +1593,21 @@ const lbTd="padding:7px 8px;text-align:center;";
 function renderCompletePanel(defId,lb){
   const def=getDef(defId);const inst=getInstance(defId);const winner=getPlayer(inst.winnerId);
   const prize1=prizeForPosition(1,def.purseM,lb.filter(r=>!r.cut).length);
+  const deathHole=inst.deathHoleTied;
+  const deathWinner=inst.deathHoleWinner?getPlayer(inst.deathHoleWinner):null;
   const panel=document.getElementById('play-panel');
   panel.innerHTML=`<div class="card" style="padding:24px;text-align:center;">
-    <div class="eyebrow" style="color:var(--turf-600);">Champion</div>
+    ${def.major?`<div style="background:var(--board-amber);color:var(--board-black);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.1em;padding:4px 12px;border-radius:2px;display:inline-block;margin-bottom:8px;">⛳ MAJOR CHAMPION</div>`:''}
+    ${def.bigPurse?`<div style="background:rgba(217,161,59,0.15);border:1px solid rgba(217,161,59,0.5);color:#7a5a0a;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;letter-spacing:0.08em;padding:3px 10px;border-radius:2px;display:inline-block;margin-bottom:8px;margin-left:6px;">💰 ELEVATED PURSE $${def.purseM}M</div>`:''}
+    <div class="eyebrow" style="color:var(--turf-600);margin-top:4px;">Champion</div>
     <div style="width:64px;height:64px;border-radius:50%;background:${avatarColor(winner?.name||'?')};color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;font-family:'Barlow Condensed',sans-serif;margin:10px auto;">${winner?initialsOf(winner.name):'?'}</div>
     <h2 style="font-size:26px;margin-bottom:4px;">${winner?escapeHTML(winner.name):'—'}</h2>
-    <div style="font-size:14px;color:var(--ink-500);margin-bottom:18px;">wins ${def.name}${def.major?' — a Major':''}</div>
+    <div style="font-size:14px;color:var(--ink-500);margin-bottom:${deathHole?'6px':'18px'};">wins ${def.name}${def.major?' — a Major':''}</div>
+    ${deathHole?`<div style="background:rgba(168,54,42,0.1);border:1px solid rgba(168,54,42,0.3);border-radius:4px;padding:8px 14px;margin-bottom:14px;font-size:12px;color:var(--flag-red);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.04em;">
+      ⚡ SUDDEN DEATH PLAYOFF — ${deathWinner?escapeHTML(deathWinner.name):'Winner'} wins with a ${inst.deathHoleScore} on the playoff hole
+    </div>`:''}
     <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:18px;">
-      ${[['Score',lb[0]?(lb[0].toPar===0?'E':lb[0].toPar>0?'+'+lb[0].toPar:lb[0].toPar):'—'],['Strokes',lb[0]?lb[0].strokes:'—'],['Prize',formatMoney(prize1)],['Tour Points',pointsForPosition(1,def.major)]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px 16px;border-radius:4px;"><div class="eyebrow" style="margin-bottom:2px;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
+      ${[['Score',lb[0]?(lb[0].toPar===0?'E':lb[0].toPar>0?'+'+lb[0].toPar:lb[0].toPar):'—'],['Strokes',lb[0]?lb[0].strokes:'—'],['Prize',formatMoney(prize1)],['Tour Points',def.playoff?'FedEx only':pointsForPosition(1,def.major)]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px 16px;border-radius:4px;"><div class="eyebrow" style="margin-bottom:2px;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
     </div>
     ${def.teamEvent&&STATE.fantasy.drafted?teamEventResultsHTML():''}
     <button class="btn ghost" id="back-to-schedule-btn">Back to Schedule</button>
