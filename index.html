@@ -1012,7 +1012,14 @@ function openPlayerModal(playerId){
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
 
 function isSeasonComplete(){
-  return STATE.schedule.length>0 && STATE.schedule.every(s=>s.status==='complete');
+  if(STATE.schedule.length===0)return false;
+  return STATE.schedule.every(s=>{
+    const def=getDef(s.defId);
+    // The Ryder Cup only happens in odd seasons — in an "off" season it can never be
+    // started, so it shouldn't block the season from being considered complete.
+    if(def&&def.rydercup&&!isRyderCupSeason(STATE.seasonNumber))return true;
+    return s.status==='complete';
+  });
 }
 
 // Folds this season's standings into each player's permanent career record
