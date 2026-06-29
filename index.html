@@ -2292,6 +2292,7 @@ let RC_UI={sessionIdx:null,matchIdx:null,matchHoleState:null};
 function renderRyderCupView(el){
   const rc=STATE.rydercup;if(!rc){el.innerHTML=`<div class="empty-state"><h3>No Ryder Cup active</h3></div>`;return;}
   if(rc.phase==='complete'){renderRyderCupComplete(el,rc);return;}
+  if(RC_MATCH_PLAY.active){renderRCMatchPlayPanel(el);return;}
   renderRyderCupProgress(el,rc);
 }
 
@@ -2474,15 +2475,62 @@ function renderRyderCupComplete(el,rc){
   appendRyderCupHistory(el,hist);
 }
 
-// Simplified play-through for RC matches
-let RC_MATCH_PLAY={active:false,sIdx:null,mIdx:null,holeNum:1,totalHoles:9,scoreUSA:0,scoreEurope:0,hsUSA:null,hsEurope:null,done:false,winner:null,shootingUSA:true};
+// Match-play UI for Ryder Cup foursomes/fourball/singles.
+// Mirrors the regular hole-by-hole play screen (two-column layout, big lie/distance/strokes
+// readout, scrollable shot log) but runs two sides side-by-side instead of one player.
+// The person chooses which side to hit next — the app never silently switches control.
+let RC_MATCH_PLAY={active:false,sIdx:null,mIdx:null,holeNum:1,totalHoles:9,scoreUSA:0,scoreEurope:0,hsUSA:null,hsEurope:null,holeLog:[],done:false,winner:null,turn:'USA'};
 
 function openRCMatchPlayModalNew(viewEl,sIdx,mIdx){
-  const rc=STATE.rydercup;const session=rc.sessions[sIdx];const match=session.matches[mIdx];
   const holeDef={hole:1,par:4,yards:430};
   RC_MATCH_PLAY={active:true,sIdx,mIdx,holeNum:1,totalHoles:9,scoreUSA:0,scoreEurope:0,
-    hsUSA:newHoleState(holeDef),hsEurope:newHoleState(holeDef),done:false,winner:null,shootingUSA:true};
+    hsUSA:newHoleState(holeDef),hsEurope:newHoleState(holeDef),holeLog:[],done:false,winner:null,turn:'USA'};
   renderRCMatchPlayPanel(viewEl);
+}
+
+function rcMatchStatusText(diff,holesLeft){
+  if(diff===0)return'All Square';
+  const leader=diff>0?'USA':'Europe';
+  const mag=Math.abs(diff);
+  if(mag>holesLeft)return`${leader} wins`;
+  if(mag===holesLeft)return`${leader} ${mag} UP · Dormie`;
+  return`${leader} ${mag} UP`;
+}
+
+function rcSideCardHTML(side,hs,player,isTurn){
+  const isUSA=side==='USA';
+  const col=isUSA?'#002868':'#00467f';
+  const bg=isUSA?'rgba(0,40,104,0.05)':'rgba(0,70,127,0.05)';
+  const flag=isUSA?'🇺🇸':'🇪🇺';
+  const name=player?escapeHTML(player.name):side;
+  const ringStyle=isTurn?`box-shadow:0 0 0 2px ${col};`:'';
+  return`<div style="flex:1;min-width:0;background:${bg};border:1px solid ${isUSA?'rgba(0,40,104,0.18)':'rgba(0,70,127,0.18)'};${ringStyle}border-radius:6px;padding:12px 14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+      <span style="width:26px;height:26px;border-radius:50%;background:${avatarColor(player?.name||side)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${player?initialsOf(player.name):flag}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${col};">${flag} ${side}</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--ink-900);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+      </div>
+      ${isTurn&&!hs.holedOut?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:${col};color:#fff;padding:2px 7px;border-radius:10px;letter-spacing:0.04em;white-space:nowrap;">ON THE TEE</span>`:''}
+      ${hs.holedOut?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:rgba(63,122,77,0.15);color:var(--turf-700);padding:2px 7px;border-radius:10px;letter-spacing:0.04em;white-space:nowrap;">✓ IN</span>`:''}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Lie</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">${hs.lie==='green'?'To Hole':'To Pin'}</div>
+        <div class="num" style="font-size:14px;">${hs.lie==='green'?hs.puttDistanceFt+'ft':Math.round(hs.remaining)+'y'}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Strokes</div>
+        <div class="num" style="font-size:14px;">${hs.strokes}</div>
+      </div>
+    </div>
+    ${hs.log.length?`<div style="font-size:11px;color:var(--ink-700);margin-top:8px;padding:6px 8px;background:#fff;border-radius:3px;border-left:3px solid ${col};">${escapeHTML(hs.log[hs.log.length-1])}</div>`:''}
+    ${!hs.holedOut?`<button class="btn btn-sm" data-rc-hit="${side}" style="width:100%;margin-top:9px;background:${col};border-color:${col};">${hs.strokes===0?'Tee Off':'Hit Next Shot'}</button>`:''}
+  </div>`;
 }
 
 function renderRCMatchPlayPanel(viewEl){
@@ -2490,94 +2538,107 @@ function renderRCMatchPlayPanel(viewEl){
   const session=rc.sessions[rcm.sIdx];const match=session.matches[rcm.mIdx];
   const holesLeft=rcm.totalHoles-rcm.holeNum+1;
   const diff=rcm.scoreUSA-rcm.scoreEurope;
+  const usaP=getPlayer(match.lineupUSA[0]);const eurP=getPlayer(match.lineupEurope[0]);
+  const usaEff=usaP?effectiveAttrs(usaP):{};const eurEff=eurP?effectiveAttrs(eurP):{};
 
-  let panel=document.getElementById('rc-match-panel');
-  if(!panel){panel=document.createElement('div');panel.id='rc-match-panel';viewEl.appendChild(panel);}
+  viewEl.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow" style="color:var(--flag-red);">${session.name} · Match Play</span><h2>🇺🇸 ${escapeHTML(usaP?.name||'USA')} vs 🇪🇺 ${escapeHTML(eurP?.name||'Europe')}</h2></div>
+    <button class="btn ghost btn-sm" id="rc-mp-back">← Back to Matches</button>
+  </div>
+  <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
+    <div id="rc-mp-play-col"></div>
+    <div id="rc-mp-status-col"></div>
+  </div>`;
 
+  document.getElementById('rc-mp-back').addEventListener('click',()=>{
+    RC_MATCH_PLAY.active=false;renderRyderCupView(viewEl);
+  });
+
+  /* ---- Status column: score header, both sides' cards, hole-by-hole match log ---- */
+  const statusCol=document.getElementById('rc-mp-status-col');
   if(rcm.done){
-    const resultText=rcm.winner==='H'?'Match Halved':rcm.winner==='USA'?'🇺🇸 USA Win':'🇪🇺 Europe Win';
+    const resultText=rcm.winner==='H'?'Match Halved':rcm.winner==='USA'?'USA Win':'Europe Win';
     const col=rcm.winner==='USA'?'#002868':rcm.winner==='Europe'?'#00467f':'var(--ink-500)';
-    panel.innerHTML=`<div class="card" style="padding:20px;text-align:center;border-top:4px solid ${col};">
+    statusCol.innerHTML=`<div class="card" style="padding:20px;text-align:center;border-top:4px solid ${col};">
       <div style="font-size:28px;margin-bottom:8px;">${rcm.winner==='H'?'🤝':'🏆'}</div>
       <div style="font-family:'Oswald',sans-serif;font-size:20px;color:${col};">${resultText}</div>
       <div class="num" style="font-size:18px;margin:8px 0;">USA ${rcm.scoreUSA} – ${rcm.scoreEurope} Europe</div>
-      <button class="btn amber" id="rc-mp-confirm" style="margin-top:12px;width:100%;padding:10px;">Confirm & Back</button>
+      <button class="btn amber" id="rc-mp-confirm" style="margin-top:12px;width:100%;padding:10px;">Confirm Result &amp; Back to Matches</button>
     </div>`;
-    document.getElementById('rc-mp-confirm')?.addEventListener('click',()=>{
+    document.getElementById('rc-mp-confirm').addEventListener('click',()=>{
       match.result=rcm.winner;match.status='complete';
       RC_MATCH_PLAY.active=false;saveState();renderRyderCupView(viewEl);
     });
-    return;
+  } else {
+    statusCol.innerHTML=`<div class="card" style="padding:0;overflow:hidden;">
+      <div style="background:var(--board-black);color:var(--paper-50);padding:12px 16px;text-align:center;">
+        <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--sand-300);">Hole ${rcm.holeNum} of ${rcm.totalHoles} · Par 4</div>
+        <div class="num" style="font-size:26px;margin:4px 0;"><span style="color:#7fa8e0;">${rcm.scoreUSA}</span> – <span style="color:#7fc4ea;">${rcm.scoreEurope}</span></div>
+        <div style="font-size:12px;color:var(--sand-200);font-family:'Barlow Condensed',sans-serif;font-weight:700;">${rcMatchStatusText(diff,holesLeft)} · ${holesLeft} to play</div>
+      </div>
+      <div style="padding:12px;">${rcm.holeLog.length===0?`<div style="font-size:12px;color:var(--ink-500);text-align:center;padding:8px;">No holes completed yet</div>`:`
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;" class="scrollbar-thin">
+          ${rcm.holeLog.slice().reverse().map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;background:var(--sand-200);border-radius:3px;">
+            <span class="num" style="width:20px;color:var(--ink-500);">H${h.hole}</span>
+            <span style="flex:1;color:${h.winner==='USA'?'#002868':h.winner==='Europe'?'#00467f':'var(--ink-700)'};font-weight:600;">${h.winner==='H'?'Halved':h.winner+' wins hole'}</span>
+            <span style="font-size:11px;color:var(--ink-500);">USA ${h.usaStrokes} – ${h.eurStrokes} Eur</span>
+          </div>`).join('')}
+        </div>`}
+      </div>
+    </div>`;
   }
 
-  const usaP=getPlayer(match.lineupUSA[0]);const eurP=getPlayer(match.lineupEurope[0]);
-  const usaEff=usaP?effectiveAttrs(usaP):{};const eurEff=eurP?effectiveAttrs(eurP):{};
-  const hs=rcm.shootingUSA?rcm.hsUSA:rcm.hsEurope;
-  const shooting=rcm.shootingUSA?'🇺🇸 USA':'🇪🇺 Europe';
-  const shootingName=rcm.shootingUSA?(usaP?.name||'USA'):(eurP?.name||'Europe');
-
-  panel.innerHTML=`<div class="card" style="padding:16px;">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--flag-red);margin-bottom:4px;">Hole ${rcm.holeNum} of ${rcm.totalHoles} · Par 4</div>
-    <div style="display:flex;justify-content:space-around;background:var(--sand-200);padding:10px;border-radius:4px;margin-bottom:12px;text-align:center;">
-      <div><div style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">🇺🇸 USA</div><div class="num" style="font-size:22px;color:#002868;">${rcm.scoreUSA}</div></div>
-      <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;color:var(--ink-500);align-self:center;">vs</div>
-      <div><div style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">🇪🇺 Europe</div><div class="num" style="font-size:22px;color:#00467f;">${rcm.scoreEurope}</div></div>
+  /* ---- Play column: the two side-by-side player cards + whichever hit-shot controls apply ---- */
+  const playCol=document.getElementById('rc-mp-play-col');
+  if(!rcm.done){
+    const usaTurn=rcm.turn==='USA'&&!rcm.hsUSA.holedOut;
+    const eurTurn=rcm.turn==='Europe'&&!rcm.hsEurope.holedOut;
+    playCol.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      ${rcSideCardHTML('USA',rcm.hsUSA,usaP,usaTurn)}
+      ${rcSideCardHTML('Europe',rcm.hsEurope,eurP,eurTurn)}
     </div>
-    <div style="font-size:12px;color:var(--ink-500);margin-bottom:10px;text-align:center;">${diff>0?`USA leads ${diff}UP`:(diff<0?`Europe leads ${Math.abs(diff)}UP`:'All Square')} · ${holesLeft} to play</div>
-    <div style="background:${rcm.shootingUSA?'rgba(0,40,104,0.06)':'rgba(0,70,127,0.06)'};border-radius:4px;padding:10px;margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;color:${rcm.shootingUSA?'#002868':'#00467f'};margin-bottom:4px;">${shooting} · ${escapeHTML(shootingName)}</div>
-      <div style="display:flex;align-items:center;gap:16px;">
-        <div><div style="font-size:10px;color:var(--ink-500);">Lie</div><div style="font-family:'Oswald',sans-serif;font-size:14px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div></div>
-        <div><div style="font-size:10px;color:var(--ink-500);">${hs.lie==='green'?'To Hole':'Remaining'}</div><div class="num" style="font-size:16px;">${hs.lie==='green'?hs.puttDistanceFt+' ft':Math.round(hs.remaining)+'y'}</div></div>
-        <div><div style="font-size:10px;color:var(--ink-500);">Strokes</div><div class="num" style="font-size:16px;">${hs.strokes}</div></div>
+    <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-500);">Quick Actions</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${!rcm.hsUSA.holedOut||!rcm.hsEurope.holedOut?`<button class="btn ghost btn-sm" id="rc-mp-sim-hole" style="border-color:var(--board-amber);color:#7a5a0a;">Simulate Rest of Hole (Both Sides)</button>`:''}
+        ${rcm.hsUSA.holedOut&&rcm.hsEurope.holedOut?`<button class="btn amber" id="rc-mp-next-hole" style="flex:1;">Confirm Hole &amp; Continue →</button>`:''}
       </div>
-      ${hs.log.length?`<div style="font-size:11px;color:var(--ink-700);margin-top:6px;padding:5px;background:rgba(255,255,255,0.5);border-radius:3px;">${escapeHTML(hs.log[hs.log.length-1])}</div>`:''}
-    </div>
-    <button class="btn amber" id="rc-mp-hit" style="width:100%;padding:11px;" ${hs.holedOut?'disabled':''}>
-      ${hs.strokes===0?`Tee Off — ${escapeHTML(shootingName)}`:`Hit Next Shot`}
-    </button>
-    ${hs.holedOut?`<button class="btn" id="rc-mp-next" style="width:100%;margin-top:6px;padding:10px;">✓ Done (${hs.strokes} strokes) — Next</button>`:''}
-    <button class="btn ghost btn-sm" id="rc-mp-sim-hole" style="width:100%;margin-top:6px;">Simulate Rest of Hole</button>
-  </div>`;
+      <p style="font-size:11px;color:var(--ink-500);margin:0;">Tap "Tee Off" / "Hit Next Shot" on either card — play USA and Europe in any order you like, hole by hole.</p>
+    </div>`;
 
-  document.getElementById('rc-mp-hit')?.addEventListener('click',()=>{
-    const eff=rcm.shootingUSA?usaEff:eurEff;
-    playShot(hs,eff);
-    if(hs.holedOut){
-      // Switch to other side if not holed
-      if(!rcm.shootingUSA||!rcm.hsEurope.holedOut){
-        rcm.shootingUSA=!rcm.shootingUSA;
+    playCol.querySelectorAll('[data-rc-hit]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const side=btn.dataset.rcHit;
+        const hs=side==='USA'?rcm.hsUSA:rcm.hsEurope;
+        const eff=side==='USA'?usaEff:eurEff;
+        playShot(hs,eff);
+        rcm.turn=side; // keep focus ring on the side just played
+        renderRCMatchPlayPanel(viewEl);
+      });
+    });
+    document.getElementById('rc-mp-sim-hole')?.addEventListener('click',()=>{
+      while(!rcm.hsUSA.holedOut)playShot(rcm.hsUSA,usaEff);
+      while(!rcm.hsEurope.holedOut)playShot(rcm.hsEurope,eurEff);
+      renderRCMatchPlayPanel(viewEl);
+    });
+    document.getElementById('rc-mp-next-hole')?.addEventListener('click',()=>{
+      const usaStrokes=rcm.hsUSA.strokes,eurStrokes=rcm.hsEurope.strokes;
+      let holeWinner='H';
+      if(usaStrokes<eurStrokes){rcm.scoreUSA++;holeWinner='USA';}
+      else if(eurStrokes<usaStrokes){rcm.scoreEurope++;holeWinner='Europe';}
+      rcm.holeLog.push({hole:rcm.holeNum,usaStrokes,eurStrokes,winner:holeWinner});
+      const newHolesLeft=rcm.totalHoles-rcm.holeNum;
+      const holeDiff=rcm.scoreUSA-rcm.scoreEurope;
+      if(Math.abs(holeDiff)>newHolesLeft||rcm.holeNum>=rcm.totalHoles){
+        rcm.done=true;rcm.winner=holeDiff>0?'USA':holeDiff<0?'Europe':'H';
+      } else {
+        rcm.holeNum++;
+        const hd={hole:rcm.holeNum,par:4,yards:430};
+        rcm.hsUSA=newHoleState(hd);rcm.hsEurope=newHoleState(hd);rcm.turn='USA';
       }
-    }
-    renderRCMatchPlayPanel(viewEl);
-  });
-  document.getElementById('rc-mp-sim-hole')?.addEventListener('click',()=>{
-    // Auto-finish both sides
-    while(!rcm.hsUSA.holedOut)playShot(rcm.hsUSA,usaEff);
-    while(!rcm.hsEurope.holedOut)playShot(rcm.hsEurope,eurEff);
-    rcm.shootingUSA=false;
-    renderRCMatchPlayPanel(viewEl);
-  });
-  document.getElementById('rc-mp-next')?.addEventListener('click',()=>{
-    // If other side not done yet, switch
-    if(rcm.shootingUSA&&!rcm.hsEurope.holedOut){rcm.shootingUSA=false;renderRCMatchPlayPanel(viewEl);return;}
-    if(!rcm.shootingUSA&&!rcm.hsUSA.holedOut){rcm.shootingUSA=true;renderRCMatchPlayPanel(viewEl);return;}
-    // Both done — resolve hole
-    const usaStrokes=rcm.hsUSA.strokes,eurStrokes=rcm.hsEurope.strokes;
-    if(usaStrokes<eurStrokes)rcm.scoreUSA++;
-    else if(eurStrokes<usaStrokes)rcm.scoreEurope++;
-    const newHolesLeft=rcm.totalHoles-rcm.holeNum;
-    const holeDiff=rcm.scoreUSA-rcm.scoreEurope;
-    if(Math.abs(holeDiff)>newHolesLeft||rcm.holeNum>=rcm.totalHoles){
-      rcm.done=true;
-      rcm.winner=holeDiff>0?'USA':holeDiff<0?'Europe':'H';
-    } else {
-      rcm.holeNum++;
-      const hd={hole:rcm.holeNum,par:4,yards:430};
-      rcm.hsUSA=newHoleState(hd);rcm.hsEurope=newHoleState(hd);rcm.shootingUSA=true;
-    }
-    renderRCMatchPlayPanel(viewEl);
-  });
+      renderRCMatchPlayPanel(viewEl);
+    });
+  }
 }
 
 function scorecardHTML(def,scoreArr,currentHoleIdx){
