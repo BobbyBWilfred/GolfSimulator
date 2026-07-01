@@ -175,6 +175,28 @@ const TOURNAMENT_SEEDS=[
   {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:15,yard:0,rydercup:true},
   {name:"Procore Championship",course:"Silverado Resort (North)",loc:"Napa, CA",major:false,purse:8.4,seed:19,yard:-6},
   {name:"Shriners Children's Open",course:"TPC Summerlin",loc:"Las Vegas, NV",major:false,purse:8.6,seed:20,yard:-9},
+  // Full-field stroke play events beyond the top 20, so the calendar reflects the whole PGA Tour season.
+  {name:"Sanderson Farms Championship",course:"Country Club of Jackson",loc:"Jackson, MS",major:false,purse:4.0,seed:21,yard:-8},
+  {name:"Butterfield Bermuda Championship",course:"Port Royal Golf Course",loc:"Southampton, Bermuda",major:false,purse:3.9,seed:22,yard:-3},
+  {name:"World Wide Technology Championship",course:"Cabo Del Sol",loc:"Los Cabos, Mexico",major:false,purse:8.4,seed:23,yard:4},
+  {name:"ZOZO Championship",course:"Accordia Golf Narashino CC",loc:"Chiba, Japan",major:false,purse:8.3,seed:24,yard:-2},
+  {name:"The RSM Classic",course:"Sea Island Golf Club",loc:"St. Simons Island, GA",major:false,purse:8.7,seed:25,yard:-7},
+  {name:"Farmers Insurance Open",course:"Torrey Pines GC",loc:"San Diego, CA",major:false,purse:9.3,seed:26,yard:6},
+  {name:"The Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:27,yard:9},
+  {name:"Mexico Open at VidantaWorld",course:"Vidanta Vallarta",loc:"Nuevo Vallarta, Mexico",major:false,purse:8.1,seed:28,yard:-4},
+  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.2,seed:29,yard:-2},
+  {name:"Puerto Rico Open",course:"Grand Reserve CC",loc:"Rio Grande, Puerto Rico",major:false,purse:4.0,seed:30,yard:-9},
+  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:8.9,seed:31,yard:3},
+  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.5,seed:32,yard:7},
+  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.6,seed:33,yard:5},
+  {name:"Corales Puntacana Championship",course:"Puntacana Resort (Corales)",loc:"Punta Cana, Dominican Republic",major:false,purse:4.0,seed:34,yard:-6},
+  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:9.8,seed:35,yard:4},
+  {name:"Myrtle Beach Classic",course:"Dunes Golf & Beach Club",loc:"Myrtle Beach, SC",major:false,purse:4.0,seed:36,yard:-8},
+  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:9.4,seed:37,yard:-1},
+  {name:"ISCO Championship",course:"Hurstbourne Country Club",loc:"Louisville, KY",major:false,purse:4.0,seed:38,yard:-6},
+  {name:"Barracuda Championship",course:"Old Greenwood",loc:"Truckee, CA",major:false,purse:4.0,seed:39,yard:-14},
+  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.2,seed:40,yard:-10},
+  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.4,seed:41,yard:-5},
 ];
 
 function buildTournamentDefs(){
@@ -205,8 +227,8 @@ function prizeForPosition(pos,purseM,fieldSize){
    If the API can't be reached at all (e.g. you're just opening this HTML file
    directly, with no server running), we fall back to localStorage so the app
    still works standalone — you'll see a small notice when that happens. */
-const STORAGE_KEY='teeSheetTour_save_v3';
-const SAVE_VERSION=3;
+const STORAGE_KEY='teeSheetTour_save_v4';
+const SAVE_VERSION=4;
 
 // Point this at wherever server.js is running. Override by setting
 // window.TEE_SHEET_API_BASE before this script runs, e.g. from a different port/host.
@@ -232,7 +254,7 @@ let LOCAL_BACKEND=(function(){
 function freshState(){
   return{
     version:SAVE_VERSION,seasonNumber:1,
-    players:[],
+    players:buildTop100Roster(), // real top-100 PGA Tour field; use "+ Add Player" to add yourself alongside them
     tournamentDefs:buildTournamentDefs(),
     schedule:[],
     currentWeekIndex:0,
@@ -312,6 +334,119 @@ async function pushStateToServer(){
   }
 }
 
+// Real-world PGA Tour Top 100 (OWGR-style ranking, mid-2026), with career stats
+// used to seed attribute ratings and a realStats block shown on the roster/profile.
+const TOP100_PLAYERS=[
+  {name:"Scottie Scheffler",country:"US",rank:1,attrs:{power:93,accuracy:93,irons:98,short:92,putting:96,clutch:95},realStats:{tourWins:7,majorWins:2,bestMajor:"1st"}},
+  {name:"Rory McIlroy",country:"NIR",rank:2,attrs:{power:92,accuracy:93,irons:93,short:96,putting:92,clutch:90},realStats:{tourWins:28,majorWins:4,bestMajor:"1st"}},
+  {name:"Cameron Young",country:"US",rank:3,attrs:{power:90,accuracy:96,irons:90,short:96,putting:93,clutch:91},realStats:{tourWins:1,majorWins:0,bestMajor:"3rd"}},
+  {name:"Matt Fitzpatrick",country:"ENG",rank:4,attrs:{power:90,accuracy:95,irons:94,short:93,putting:90,clutch:96},realStats:{tourWins:8,majorWins:1,bestMajor:"1st"}},
+  {name:"Russell Henley",country:"US",rank:5,attrs:{power:89,accuracy:89,irons:91,short:94,putting:92,clutch:95},realStats:{tourWins:5,majorWins:0,bestMajor:"2nd"}},
+  {name:"Justin Rose",country:"ENG",rank:6,attrs:{power:96,accuracy:92,irons:94,short:96,putting:97,clutch:97},realStats:{tourWins:11,majorWins:0,bestMajor:"2nd"}},
+  {name:"Tommy Fleetwood",country:"ENG",rank:7,attrs:{power:92,accuracy:94,irons:91,short:95,putting:93,clutch:92},realStats:{tourWins:1,majorWins:0,bestMajor:"2nd"}},
+  {name:"Wyndham Clark",country:"US",rank:8,attrs:{power:89,accuracy:93,irons:95,short:90,putting:94,clutch:88},realStats:{tourWins:3,majorWins:1,bestMajor:"1st"}},
+  {name:"Collin Morikawa",country:"US",rank:9,attrs:{power:91,accuracy:92,irons:95,short:93,putting:93,clutch:96},realStats:{tourWins:6,majorWins:2,bestMajor:"1st"}},
+  {name:"Jon Rahm",country:"ES",rank:10,attrs:{power:90,accuracy:91,irons:91,short:88,putting:95,clutch:88},realStats:{tourWins:11,majorWins:2,bestMajor:"1st"}},
+  {name:"Xander Schauffele",country:"US",rank:11,attrs:{power:91,accuracy:90,irons:94,short:93,putting:87,clutch:91},realStats:{tourWins:8,majorWins:2,bestMajor:"1st"}},
+  {name:"J.J. Spaun",country:"US",rank:12,attrs:{power:90,accuracy:93,irons:87,short:92,putting:88,clutch:90},realStats:{tourWins:3,majorWins:1,bestMajor:"1st"}},
+  {name:"Chris Gotterup",country:"US",rank:13,attrs:{power:89,accuracy:92,irons:94,short:95,putting:88,clutch:92},realStats:{tourWins:2,majorWins:0,bestMajor:"5th"}},
+  {name:"Ludvig Aberg",country:"SE",rank:14,attrs:{power:91,accuracy:87,irons:91,short:93,putting:93,clutch:87},realStats:{tourWins:3,majorWins:0,bestMajor:"2nd"}},
+  {name:"Sam Burns",country:"US",rank:15,attrs:{power:91,accuracy:89,irons:94,short:88,putting:89,clutch:94},realStats:{tourWins:6,majorWins:0,bestMajor:"3rd"}},
+  {name:"Aaron Rai",country:"ENG",rank:16,attrs:{power:88,accuracy:91,irons:89,short:90,putting:90,clutch:90},realStats:{tourWins:3,majorWins:0,bestMajor:"4th"}},
+  {name:"Justin Thomas",country:"US",rank:17,attrs:{power:92,accuracy:87,irons:87,short:88,putting:91,clutch:88},realStats:{tourWins:16,majorWins:2,bestMajor:"1st"}},
+  {name:"Ben Griffin",country:"US",rank:18,attrs:{power:92,accuracy:86,irons:86,short:93,putting:91,clutch:86},realStats:{tourWins:2,majorWins:0,bestMajor:"6th"}},
+  {name:"Robert MacIntyre",country:"SCO",rank:19,attrs:{power:89,accuracy:91,irons:86,short:90,putting:92,clutch:90},realStats:{tourWins:2,majorWins:0,bestMajor:"2nd"}},
+  {name:"Tyrrell Hatton",country:"ENG",rank:20,attrs:{power:86,accuracy:88,irons:90,short:85,putting:91,clutch:89},realStats:{tourWins:6,majorWins:0,bestMajor:"3rd"}},
+  {name:"Si Woo Kim",country:"KR",rank:21,attrs:{power:86,accuracy:90,irons:88,short:85,putting:87,clutch:86},realStats:{tourWins:4,majorWins:0,bestMajor:"9th"}},
+  {name:"Sepp Straka",country:"AT",rank:22,attrs:{power:85,accuracy:90,irons:86,short:87,putting:87,clutch:91},realStats:{tourWins:4,majorWins:0,bestMajor:"6th"}},
+  {name:"Alex Noren",country:"SE",rank:23,attrs:{power:89,accuracy:90,irons:86,short:85,putting:90,clutch:88},realStats:{tourWins:1,majorWins:0,bestMajor:"6th"}},
+  {name:"Harris English",country:"US",rank:24,attrs:{power:92,accuracy:88,irons:89,short:89,putting:87,clutch:85},realStats:{tourWins:4,majorWins:0,bestMajor:"4th"}},
+  {name:"Jacob Bridgeman",country:"US",rank:25,attrs:{power:88,accuracy:90,irons:91,short:88,putting:85,clutch:86},realStats:{tourWins:1,majorWins:0,bestMajor:"11th"}},
+  {name:"Kristoffer Reitan",country:"NO",rank:26,attrs:{power:85,accuracy:86,irons:85,short:90,putting:86,clutch:85},realStats:{tourWins:0,majorWins:0,bestMajor:"25th"}},
+  {name:"Ryan Gerard",country:"US",rank:27,attrs:{power:86,accuracy:90,irons:84,short:86,putting:87,clutch:87},realStats:{tourWins:1,majorWins:0,bestMajor:"14th"}},
+  {name:"Hideki Matsuyama",country:"JP",rank:28,attrs:{power:88,accuracy:87,irons:86,short:90,putting:83,clutch:87},realStats:{tourWins:11,majorWins:1,bestMajor:"1st"}},
+  {name:"Patrick Reed",country:"US",rank:29,attrs:{power:86,accuracy:90,irons:84,short:88,putting:89,clutch:87},realStats:{tourWins:9,majorWins:1,bestMajor:"1st"}},
+  {name:"Viktor Hovland",country:"NO",rank:30,attrs:{power:85,accuracy:83,irons:88,short:88,putting:86,clutch:88},realStats:{tourWins:6,majorWins:0,bestMajor:"2nd"}},
+  {name:"Akshay Bhatia",country:"US",rank:31,attrs:{power:88,accuracy:85,irons:84,short:83,putting:87,clutch:86},realStats:{tourWins:3,majorWins:0,bestMajor:"9th"}},
+  {name:"J.T. Poston",country:"US",rank:32,attrs:{power:88,accuracy:83,irons:87,short:83,putting:83,clutch:83},realStats:{tourWins:4,majorWins:0,bestMajor:"12th"}},
+  {name:"Kurt Kitayama",country:"US",rank:33,attrs:{power:82,accuracy:82,irons:88,short:85,putting:87,clutch:87},realStats:{tourWins:2,majorWins:0,bestMajor:"5th"}},
+  {name:"Bryson DeChambeau",country:"US",rank:34,attrs:{power:83,accuracy:88,irons:83,short:83,putting:86,clutch:84},realStats:{tourWins:9,majorWins:2,bestMajor:"1st"}},
+  {name:"Nicolai Hojgaard",country:"DK",rank:35,attrs:{power:85,accuracy:85,irons:82,short:89,putting:87,clutch:81},realStats:{tourWins:2,majorWins:0,bestMajor:"11th"}},
+  {name:"Maverick McNealy",country:"US",rank:36,attrs:{power:82,accuracy:85,irons:87,short:86,putting:88,clutch:81},realStats:{tourWins:1,majorWins:0,bestMajor:"7th"}},
+  {name:"Patrick Cantlay",country:"US",rank:37,attrs:{power:85,accuracy:88,irons:82,short:87,putting:89,clutch:81},realStats:{tourWins:9,majorWins:0,bestMajor:"2nd"}},
+  {name:"Keegan Bradley",country:"US",rank:38,attrs:{power:84,accuracy:87,irons:88,short:87,putting:87,clutch:85},realStats:{tourWins:6,majorWins:1,bestMajor:"1st"}},
+  {name:"Min Woo Lee",country:"AU",rank:39,attrs:{power:87,accuracy:87,irons:88,short:83,putting:87,clutch:83},realStats:{tourWins:3,majorWins:0,bestMajor:"12th"}},
+  {name:"Bud Cauley",country:"US",rank:40,attrs:{power:84,accuracy:81,irons:86,short:83,putting:87,clutch:83},realStats:{tourWins:1,majorWins:0,bestMajor:"15th"}},
+  {name:"Gary Woodland",country:"US",rank:41,attrs:{power:83,accuracy:82,irons:84,short:80,putting:81,clutch:86},realStats:{tourWins:4,majorWins:1,bestMajor:"1st"}},
+  {name:"Rickie Fowler",country:"US",rank:42,attrs:{power:83,accuracy:86,irons:80,short:84,putting:81,clutch:82},realStats:{tourWins:6,majorWins:0,bestMajor:"2nd"}},
+  {name:"Alex Smalley",country:"US",rank:43,attrs:{power:81,accuracy:82,irons:82,short:82,putting:84,clutch:86},realStats:{tourWins:1,majorWins:0,bestMajor:"18th"}},
+  {name:"Jake Knapp",country:"US",rank:44,attrs:{power:82,accuracy:81,irons:80,short:83,putting:87,clutch:84},realStats:{tourWins:1,majorWins:0,bestMajor:"20th"}},
+  {name:"Shane Lowry",country:"IE",rank:45,attrs:{power:82,accuracy:86,irons:79,short:85,putting:80,clutch:83},realStats:{tourWins:7,majorWins:1,bestMajor:"1st"}},
+  {name:"Sam Stevens",country:"US",rank:46,attrs:{power:83,accuracy:80,irons:85,short:85,putting:86,clutch:81},realStats:{tourWins:1,majorWins:0,bestMajor:"14th"}},
+  {name:"Jason Day",country:"AU",rank:47,attrs:{power:80,accuracy:85,irons:80,short:85,putting:79,clutch:79},realStats:{tourWins:13,majorWins:1,bestMajor:"1st"}},
+  {name:"Marco Penge",country:"ENG",rank:48,attrs:{power:78,accuracy:79,irons:82,short:79,putting:83,clutch:80},realStats:{tourWins:0,majorWins:0,bestMajor:"30th"}},
+  {name:"Jordan Spieth",country:"US",rank:49,attrs:{power:78,accuracy:83,irons:80,short:78,putting:83,clutch:82},realStats:{tourWins:13,majorWins:3,bestMajor:"1st"}},
+  {name:"Daniel Berger",country:"US",rank:50,attrs:{power:78,accuracy:85,irons:83,short:85,putting:84,clutch:84},realStats:{tourWins:5,majorWins:0,bestMajor:"7th"}},
+  {name:"Michael Kim",country:"US",rank:51,attrs:{power:81,accuracy:78,irons:82,short:83,putting:83,clutch:83},realStats:{tourWins:2,majorWins:0,bestMajor:"20th"}},
+  {name:"Adam Scott",country:"AU",rank:52,attrs:{power:81,accuracy:83,irons:82,short:77,putting:82,clutch:81},realStats:{tourWins:14,majorWins:1,bestMajor:"1st"}},
+  {name:"Nico Echavarria",country:"US",rank:53,attrs:{power:77,accuracy:79,irons:81,short:78,putting:82,clutch:84},realStats:{tourWins:2,majorWins:0,bestMajor:"22nd"}},
+  {name:"Ryan Fox",country:"NZ",rank:54,attrs:{power:83,accuracy:80,irons:81,short:80,putting:83,clutch:77},realStats:{tourWins:3,majorWins:0,bestMajor:"9th"}},
+  {name:"Corey Conners",country:"CA",rank:55,attrs:{power:77,accuracy:79,irons:82,short:77,putting:78,clutch:82},realStats:{tourWins:3,majorWins:0,bestMajor:"8th"}},
+  {name:"Matt McCarty",country:"US",rank:56,attrs:{power:82,accuracy:82,irons:78,short:84,putting:81,clutch:83},realStats:{tourWins:1,majorWins:0,bestMajor:"25th"}},
+  {name:"Pierceson Coody",country:"US",rank:57,attrs:{power:79,accuracy:77,irons:76,short:82,putting:77,clutch:80},realStats:{tourWins:0,majorWins:0,bestMajor:"35th"}},
+  {name:"Brian Harman",country:"US",rank:58,attrs:{power:82,accuracy:80,irons:82,short:81,putting:79,clutch:75},realStats:{tourWins:5,majorWins:1,bestMajor:"1st"}},
+  {name:"Michael Brennan",country:"US",rank:59,attrs:{power:82,accuracy:76,irons:76,short:76,putting:79,clutch:76},realStats:{tourWins:0,majorWins:0,bestMajor:"28th"}},
+  {name:"David Puig",country:"ES",rank:60,attrs:{power:77,accuracy:81,irons:82,short:77,putting:78,clutch:80},realStats:{tourWins:0,majorWins:0,bestMajor:"20th"}},
+  {name:"Joaquin Niemann",country:"CL",rank:61,attrs:{power:75,accuracy:79,irons:78,short:81,putting:75,clutch:78},realStats:{tourWins:6,majorWins:0,bestMajor:"6th"}},
+  {name:"Ryo Hisatsune",country:"JP",rank:62,attrs:{power:79,accuracy:78,irons:78,short:78,putting:75,clutch:79},realStats:{tourWins:1,majorWins:0,bestMajor:"20th"}},
+  {name:"Andrew Novak",country:"US",rank:63,attrs:{power:81,accuracy:76,irons:77,short:79,putting:77,clutch:76},realStats:{tourWins:2,majorWins:0,bestMajor:"12th"}},
+  {name:"Tom Kim",country:"KR",rank:64,attrs:{power:76,accuracy:80,irons:78,short:77,putting:76,clutch:79},realStats:{tourWins:3,majorWins:0,bestMajor:"7th"}},
+  {name:"Nick Taylor",country:"CA",rank:65,attrs:{power:77,accuracy:77,irons:81,short:74,putting:76,clutch:80},realStats:{tourWins:5,majorWins:0,bestMajor:"20th"}},
+  {name:"Eric Cole",country:"US",rank:66,attrs:{power:75,accuracy:74,irons:78,short:77,putting:75,clutch:77},realStats:{tourWins:1,majorWins:0,bestMajor:"12th"}},
+  {name:"Alex Fitzpatrick",country:"ENG",rank:67,attrs:{power:79,accuracy:80,irons:75,short:80,putting:80,clutch:78},realStats:{tourWins:0,majorWins:0,bestMajor:"33rd"}},
+  {name:"Keith Mitchell",country:"US",rank:68,attrs:{power:76,accuracy:76,irons:76,short:78,putting:78,clutch:75},realStats:{tourWins:2,majorWins:0,bestMajor:"15th"}},
+  {name:"Sami Valimaki",country:"FI",rank:69,attrs:{power:73,accuracy:80,irons:80,short:79,putting:76,clutch:79},realStats:{tourWins:0,majorWins:0,bestMajor:"25th"}},
+  {name:"Harry Hall",country:"ENG",rank:70,attrs:{power:77,accuracy:77,irons:77,short:76,putting:78,clutch:75},realStats:{tourWins:1,majorWins:0,bestMajor:"18th"}},
+  {name:"Max Greyserman",country:"US",rank:71,attrs:{power:80,accuracy:74,irons:73,short:72,putting:76,clutch:77},realStats:{tourWins:1,majorWins:0,bestMajor:"20th"}},
+  {name:"Thomas Detry",country:"BE",rank:72,attrs:{power:79,accuracy:74,irons:76,short:77,putting:72,clutch:76},realStats:{tourWins:2,majorWins:0,bestMajor:"14th"}},
+  {name:"Sahith Theegala",country:"US",rank:73,attrs:{power:72,accuracy:76,irons:78,short:72,putting:72,clutch:72},realStats:{tourWins:1,majorWins:0,bestMajor:"5th"}},
+  {name:"Aldrich Potgieter",country:"ZA",rank:74,attrs:{power:79,accuracy:75,irons:72,short:78,putting:78,clutch:76},realStats:{tourWins:1,majorWins:0,bestMajor:"30th"}},
+  {name:"Johnny Keefer",country:"US",rank:75,attrs:{power:77,accuracy:75,irons:76,short:74,putting:76,clutch:71},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Jayden Schaper",country:"ZA",rank:76,attrs:{power:75,accuracy:78,irons:74,short:77,putting:76,clutch:75},realStats:{tourWins:0,majorWins:0,bestMajor:"35th"}},
+  {name:"Matti Schmid",country:"DE",rank:77,attrs:{power:71,accuracy:74,irons:73,short:75,putting:71,clutch:71},realStats:{tourWins:1,majorWins:0,bestMajor:"20th"}},
+  {name:"Jordan Smith",country:"ENG",rank:78,attrs:{power:78,accuracy:75,irons:70,short:77,putting:76,clutch:72},realStats:{tourWins:1,majorWins:0,bestMajor:"22nd"}},
+  {name:"Sungjae Im",country:"KR",rank:79,attrs:{power:72,accuracy:71,irons:75,short:74,putting:71,clutch:72},realStats:{tourWins:2,majorWins:0,bestMajor:"3rd"}},
+  {name:"Michael Thorbjornsen",country:"US",rank:80,attrs:{power:73,accuracy:75,irons:70,short:73,putting:73,clutch:76},realStats:{tourWins:0,majorWins:0,bestMajor:"28th"}},
+  {name:"Rasmus Hojgaard",country:"DK",rank:81,attrs:{power:73,accuracy:74,irons:70,short:75,putting:70,clutch:71},realStats:{tourWins:1,majorWins:0,bestMajor:"25th"}},
+  {name:"Casey Jarvis",country:"ZA",rank:82,attrs:{power:73,accuracy:72,irons:76,short:74,putting:73,clutch:71},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Matt Wallace",country:"ENG",rank:83,attrs:{power:73,accuracy:69,irons:69,short:73,putting:70,clutch:72},realStats:{tourWins:1,majorWins:0,bestMajor:"25th"}},
+  {name:"Patrick Rodgers",country:"US",rank:84,attrs:{power:71,accuracy:72,irons:68,short:69,putting:70,clutch:72},realStats:{tourWins:0,majorWins:0,bestMajor:"20th"}},
+  {name:"John Parry",country:"ENG",rank:85,attrs:{power:74,accuracy:69,irons:70,short:70,putting:73,clutch:76},realStats:{tourWins:0,majorWins:0,bestMajor:"35th"}},
+  {name:"Rasmus Neergaard-Petersen",country:"DK",rank:86,attrs:{power:74,accuracy:73,irons:68,short:73,putting:73,clutch:69},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Eugenio Chacarra",country:"ES",rank:87,attrs:{power:68,accuracy:73,irons:70,short:73,putting:69,clutch:74},realStats:{tourWins:0,majorWins:0,bestMajor:"38th"}},
+  {name:"Andrew Putnam",country:"US",rank:88,attrs:{power:71,accuracy:73,irons:73,short:70,putting:73,clutch:71},realStats:{tourWins:1,majorWins:0,bestMajor:"14th"}},
+  {name:"Shaun Norris",country:"ZA",rank:89,attrs:{power:67,accuracy:68,irons:73,short:67,putting:68,clutch:75},realStats:{tourWins:0,majorWins:0,bestMajor:"30th"}},
+  {name:"Mac Meissner",country:"US",rank:90,attrs:{power:71,accuracy:68,irons:74,short:68,putting:72,clutch:68},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Lucas Herbert",country:"AU",rank:91,attrs:{power:69,accuracy:72,irons:74,short:66,putting:68,clutch:71},realStats:{tourWins:1,majorWins:0,bestMajor:"22nd"}},
+  {name:"Rico Hoey",country:"PH",rank:92,attrs:{power:67,accuracy:72,irons:73,short:68,putting:70,clutch:71},realStats:{tourWins:0,majorWins:0,bestMajor:"35th"}},
+  {name:"Taylor Pendrith",country:"CA",rank:93,attrs:{power:71,accuracy:71,irons:67,short:72,putting:70,clutch:73},realStats:{tourWins:1,majorWins:0,bestMajor:"18th"}},
+  {name:"Max McGreevy",country:"US",rank:94,attrs:{power:71,accuracy:66,irons:68,short:71,putting:73,clutch:66},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Haotong Li",country:"CN",rank:95,attrs:{power:68,accuracy:71,irons:68,short:70,putting:70,clutch:68},realStats:{tourWins:0,majorWins:0,bestMajor:"35th"}},
+  {name:"Ricky Castillo",country:"US",rank:96,attrs:{power:70,accuracy:72,irons:66,short:71,putting:67,clutch:71},realStats:{tourWins:0,majorWins:0,bestMajor:"40th"}},
+  {name:"Daniel Hillier",country:"NZ",rank:97,attrs:{power:69,accuracy:67,irons:65,short:69,putting:65,clutch:71},realStats:{tourWins:0,majorWins:0,bestMajor:"38th"}},
+  {name:"Christiaan Bezuidenhout",country:"ZA",rank:98,attrs:{power:69,accuracy:70,irons:65,short:69,putting:69,clutch:68},realStats:{tourWins:1,majorWins:0,bestMajor:"20th"}},
+  {name:"Stephan Jaeger",country:"DE",rank:99,attrs:{power:66,accuracy:67,irons:66,short:66,putting:71,clutch:67},realStats:{tourWins:1,majorWins:0,bestMajor:"22nd"}},
+  {name:"Sudarshan Yellamaraju",country:"CA",rank:100,attrs:{power:67,accuracy:71,irons:65,short:66,putting:70,clutch:66},realStats:{tourWins:0,majorWins:0,bestMajor:"45th"}},
+];
+
+function buildTop100Roster(){
+  return TOP100_PLAYERS.map(tp=>({
+    id:uid('plyr'),name:tp.name,country:tp.country,attrs:Object.assign({},tp.attrs),
+    overall:overallOf(tp.attrs),realStats:Object.assign({},tp.realStats),
+    career:{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]}
+  }));
+}
+
 let STATE=freshState(); // placeholder until the async load below resolves
 
 /* ===== HELPERS ===== */
@@ -321,6 +456,8 @@ function overallOf(attrs){
   const w={power:0.16,accuracy:0.18,irons:0.22,short:0.18,putting:0.18,clutch:0.08};
   let s=0;ATTRS.forEach(a=>s+=attrs[a.key]*w[a.key]);return Math.round(s);
 }
+
+
 
 /* ===== DYNAMIC FORM (hot/cold streaks) =====
    Looks at a player's last 5 tournament results (toPar relative to field average
@@ -391,7 +528,7 @@ function flagEmoji(code){
   const map={US:'🇺🇸',ES:'🇪🇸',SE:'🇸🇪',KR:'🇰🇷',JP:'🇯🇵',ZA:'🇿🇦',AU:'🇦🇺',IE:'🇮🇪',ENG:'🏴',SCO:'🏴',CA:'🇨🇦',DE:'🇩🇪',FR:'🇫🇷',IT:'🇮🇹',AR:'🇦🇷',MX:'🇲🇽',NO:'🇳🇴',BE:'🇧🇪',NZ:'🇳🇿',CH:'🇨🇭'};
   return map[code]||'🏳️';
 }
-const COUNTRY_OPTS=['US','ENG','SCO','ES','SE','KR','JP','ZA','AU','IE','CA','DE','FR','IT','AR','MX','NO','BE','NZ','CH'];
+const COUNTRY_OPTS=['US','ENG','SCO','ES','SE','KR','JP','ZA','AU','IE','CA','DE','FR','IT','AR','MX','NO','BE','NZ','CH','NIR','AT','DK','CL','FI','PH','CN'];
 function initialsOf(name){return name.split(' ').filter(Boolean).map(w=>w[0]).slice(0,2).join('').toUpperCase();}
 function avatarColor(name){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))%360;return `hsl(${h},38%,32%)`;}
 
@@ -790,6 +927,7 @@ function rosterCardHTML(p){
           ${flagEmoji(p.country)} ${escapeHTML(p.name)} ${teamBadge}
         </div>
         <div style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${totalEvents} events · ${totalWins} W · ${formatMoney(totalEarnings)}${wrRank?` · <span style="color:var(--turf-600);font-weight:700;">WR #${wrRank}</span>`:''}</div>
+        ${p.realStats?`<div style="font-size:10px;color:var(--ink-400,#8a8a8a);font-family:'Barlow Condensed',sans-serif;">Real career: ${p.realStats.tourWins} PGA Tour win${p.realStats.tourWins===1?'':'s'} · ${p.realStats.majorWins} major${p.realStats.majorWins===1?'':'s'} · best major finish ${p.realStats.bestMajor}</div>`:''}
       </div>
       <div style="text-align:right;">
         <div class="num" style="font-size:22px;color:${ovColor};">${ov}</div>
@@ -831,6 +969,7 @@ function openProfileModal(pid){
           <div>
             <h3 style="font-size:22px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</h3>
             <div style="font-size:12px;color:var(--ink-500);">Overall: <span class="num" style="font-size:15px;color:var(--turf-700);">${p.overall}</span> &middot; ${p.country}${career.seasons?` &middot; ${career.seasons} season${career.seasons===1?'':'s'} played`:''}</div>
+            ${p.realStats?`<div style="font-size:12px;color:var(--ink-500);margin-top:2px;">Real-world career: <b>${p.realStats.tourWins}</b> PGA Tour win${p.realStats.tourWins===1?'':'s'} &middot; <b>${p.realStats.majorWins}</b> major${p.realStats.majorWins===1?'':'s'} &middot; best major finish <b>${p.realStats.bestMajor}</b> &middot; rating derived from current form/OWGR rank</div>`:''}
           </div>
           <div style="margin-left:auto;text-align:right;">
             <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Career Earnings</div>
