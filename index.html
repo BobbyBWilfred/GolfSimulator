@@ -154,55 +154,62 @@ function courseVariant(seedShift,yardBase){
 }
 
 const TOURNAMENT_SEEDS=[
-  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0},
-  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:8.3,seed:2,yard:-10},
-  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:3,yard:-5},
-  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:4,yard:10},
-  {name:"THE PLAYERS Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:5,yard:5},
-  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:20,seed:6,yard:15},
-  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:7,yard:-20},
-  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:18.5,seed:8,yard:20},
-  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.7,seed:9,yard:-15},
-  {name:"the Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:10,yard:8},
-  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:21.5,seed:11,yard:18},
-  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:12,yard:-12},
-  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:7.5,seed:13,yard:-18},
-  // Team Event — fantasy teams compete directly
-  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:14,yard:0,teamEvent:false},
-  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:16,yard:6,playoff:true},
-  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:17,yard:22,playoff:true},
-  {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:75,seed:18,yard:4,playoff:true},
-  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:15,yard:0,rydercup:true},
+  // ── Fall Swing (season opener) ──
   {name:"Procore Championship",course:"Silverado Resort (North)",loc:"Napa, CA",major:false,purse:8.4,seed:19,yard:-6},
-  {name:"Shriners Children's Open",course:"TPC Summerlin",loc:"Las Vegas, NV",major:false,purse:8.6,seed:20,yard:-9},
-  // Full-field stroke play events beyond the top 20, so the calendar reflects the whole PGA Tour season.
   {name:"Sanderson Farms Championship",course:"Country Club of Jackson",loc:"Jackson, MS",major:false,purse:4.0,seed:21,yard:-8},
+  {name:"Shriners Children's Open",course:"TPC Summerlin",loc:"Las Vegas, NV",major:false,purse:8.6,seed:20,yard:-9},
+  {name:"ZOZO Championship",course:"Accordia Golf Narashino CC",loc:"Chiba, Japan",major:false,purse:8.3,seed:24,yard:-2},
   {name:"Butterfield Bermuda Championship",course:"Port Royal Golf Course",loc:"Southampton, Bermuda",major:false,purse:3.9,seed:22,yard:-3},
   {name:"World Wide Technology Championship",course:"Cabo Del Sol",loc:"Los Cabos, Mexico",major:false,purse:8.4,seed:23,yard:4},
-  {name:"ZOZO Championship",course:"Accordia Golf Narashino CC",loc:"Chiba, Japan",major:false,purse:8.3,seed:24,yard:-2},
   {name:"The RSM Classic",course:"Sea Island Golf Club",loc:"St. Simons Island, GA",major:false,purse:8.7,seed:25,yard:-7},
+  // ── Winter / West Coast Swing ──
+  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0},
+  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:8.3,seed:2,yard:-10},
   {name:"Farmers Insurance Open",course:"Torrey Pines GC",loc:"San Diego, CA",major:false,purse:9.3,seed:26,yard:6},
+  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:3,yard:-5},
   {name:"The Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:27,yard:9},
   {name:"Mexico Open at VidantaWorld",course:"Vidanta Vallarta",loc:"Nuevo Vallarta, Mexico",major:false,purse:8.1,seed:28,yard:-4},
   {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.2,seed:29,yard:-2},
   {name:"Puerto Rico Open",course:"Grand Reserve CC",loc:"Rio Grande, Puerto Rico",major:false,purse:4.0,seed:30,yard:-9},
+  // ── Florida / Texas Swing into the Masters ──
+  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:4,yard:10},
+  {name:"THE PLAYERS Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:5,yard:5},
   {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:8.9,seed:31,yard:3},
   {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.5,seed:32,yard:7},
   {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.6,seed:33,yard:5},
-  {name:"Corales Puntacana Championship",course:"Puntacana Resort (Corales)",loc:"Punta Cana, Dominican Republic",major:false,purse:4.0,seed:34,yard:-6},
+  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:20,seed:6,yard:15},
+  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:7,yard:-20},
+  // ── Spring into the PGA Championship ──
   {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:9.8,seed:35,yard:4},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:18.5,seed:8,yard:20},
+  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.7,seed:9,yard:-15},
+  {name:"the Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:10,yard:8},
   {name:"Myrtle Beach Classic",course:"Dunes Golf & Beach Club",loc:"Myrtle Beach, SC",major:false,purse:4.0,seed:36,yard:-8},
+  // ── U.S. Open Swing ──
+  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:21.5,seed:11,yard:18},
+  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:12,yard:-12},
+  {name:"Corales Puntacana Championship",course:"Puntacana Resort (Corales)",loc:"Punta Cana, Dominican Republic",major:false,purse:4.0,seed:34,yard:-6},
   {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:9.4,seed:37,yard:-1},
+  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:7.5,seed:13,yard:-18},
   {name:"ISCO Championship",course:"Hurstbourne Country Club",loc:"Louisville, KY",major:false,purse:4.0,seed:38,yard:-6},
+  // ── The Open Championship Swing ──
+  // Team Event — fantasy teams compete directly
+  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:14,yard:0,teamEvent:false},
   {name:"Barracuda Championship",course:"Old Greenwood",loc:"Truckee, CA",major:false,purse:4.0,seed:39,yard:-14},
-  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.2,seed:40,yard:-10},
   {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.4,seed:41,yard:-5},
+  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.2,seed:40,yard:-10},
+  // ── FedExCup Playoffs ──
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:16,yard:6,playoff:true},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:17,yard:22,playoff:true},
+  {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:75,seed:18,yard:4,playoff:true},
+  // ── Ryder Cup (odd seasons only) ──
+  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:15,yard:0,rydercup:true},
 ];
 
 function buildTournamentDefs(){
   return TOURNAMENT_SEEDS.map((t,idx)=>({
     id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,
-    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:t.major?4:2,
+    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
     holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
   }));
 }
@@ -252,9 +259,10 @@ let LOCAL_BACKEND=(function(){
 })();
 
 function freshState(){
+  const players=buildTop100Roster(); // real top-100 PGA Tour field; use "+ Add Player" to add yourself alongside them
   return{
     version:SAVE_VERSION,seasonNumber:1,
-    players:buildTop100Roster(), // real top-100 PGA Tour field; use "+ Add Player" to add yourself alongside them
+    players,
     tournamentDefs:buildTournamentDefs(),
     schedule:[],
     currentWeekIndex:0,
@@ -266,7 +274,7 @@ function freshState(){
     news:[],                // [{id,season,trnId,type,icon,headline,body,ts,clutch}]
     awards:[],              // [{season,playerOfYear,fedexWinner,mostImproved}]
     rydercup:null,          // active ryder cup state, null when not in progress
-    worldRanking:{},        // playerId -> {pts, history:[{trnId,trnName,pts,season,week,major,playoff}]}
+    worldRanking:seedWorldRankingFromRoster(players), // playerId -> {pts, history:[{trnId,trnName,pts,season,week,major,playoff}]} — preseeded off real-world rank so nobody starts at 0
     rydercupHistory:[],    // [{season, winner:'USA'|'Europe', usaPlayers:[], europePlayers:[], score:{usa,europe}}]
   };
 }
@@ -278,6 +286,29 @@ function normalizeState(p){
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
   p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.rydercupHistory)p.rydercupHistory=[];
+  // Backfill: existing saves made before World Ranking seeding was added had every
+  // player parked at 0 pts until they actually played a tournament. Give any player
+  // with no WR history yet a preseason baseline instead — real top-100 players get
+  // it from their known real-world rank; custom-added players get the current
+  // lowest-ranked baseline so they slot in at the back rather than resetting to 0.
+  const rankByName={};TOP100_PLAYERS.forEach(tp=>{rankByName[tp.name]=tp.rank;});
+  const unseededCustom=[];
+  p.players.forEach(pl=>{
+    if(pl.rank===undefined)pl.rank=rankByName[pl.name];
+    if(!p.worldRanking[pl.id]){
+      if(pl.rank!==undefined){
+        const pts=seedPointsForRank(pl.rank);
+        p.worldRanking[pl.id]={pts,history:[{trnId:'seed',trnName:'Preseason Ranking',pos:pl.rank,pts,season:p.seasonNumber||1,major:false,playoff:false,seed:true}]};
+      }else unseededCustom.push(pl);
+    }
+  });
+  if(unseededCustom.length){
+    const existingPts=Object.values(p.worldRanking).map(w=>w.pts||0);
+    const backPts=existingPts.length?Math.min(...existingPts):seedPointsForRank(100);
+    unseededCustom.forEach(pl=>{
+      p.worldRanking[pl.id]={pts:backPts,history:[{trnId:'seed',trnName:'Tour Entry',pos:null,pts:backPts,season:p.seasonNumber||1,major:false,playoff:false,seed:true}]};
+    });
+  }
   return p;
 }
 
@@ -442,9 +473,42 @@ const TOP100_PLAYERS=[
 function buildTop100Roster(){
   return TOP100_PLAYERS.map(tp=>({
     id:uid('plyr'),name:tp.name,country:tp.country,attrs:Object.assign({},tp.attrs),
-    overall:overallOf(tp.attrs),realStats:Object.assign({},tp.realStats),
+    overall:overallOf(tp.attrs),realStats:Object.assign({},tp.realStats),rank:tp.rank,
     career:{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]}
   }));
+}
+
+// Seed points for a preseason World Ranking entry, based on real-world rank (1-100).
+// Rank 1 starts near the top of the WR scale; it tapers off smoothly so nobody sits at 0.
+function seedPointsForRank(rank){
+  const r=rank&&rank>0?rank:100;
+  return Math.max(5,Math.round(900*Math.pow(0.955,r-1)));
+}
+
+// Builds an initial worldRanking map so a fresh roster isn't stuck at 0 pts across
+// the board — pre-existing players get a preseason baseline off their real-world rank.
+// These seed entries decay over time (WR_DECAY) just like real results, so actual
+// tournament play gradually takes over as the true source of ranking points.
+function seedWorldRankingFromRoster(players){
+  const wr={};
+  players.forEach(p=>{
+    const pts=seedPointsForRank(p.rank);
+    wr[p.id]={pts,history:[{trnId:'seed',trnName:'Preseason Ranking',pos:p.rank||null,pts,season:1,major:false,playoff:false,seed:true}]};
+  });
+  return wr;
+}
+
+// Lowest current World Ranking point total across the roster — used so a newly added
+// player enters at the back of the pack instead of at 0.
+function lowestWorldRankingPoints(){
+  if(!STATE||!STATE.players||!STATE.players.length)return seedPointsForRank(100);
+  recomputeAllWRPoints();
+  let min=null;
+  STATE.players.forEach(p=>{
+    const pts=(STATE.worldRanking&&STATE.worldRanking[p.id]?STATE.worldRanking[p.id].pts:0)||0;
+    if(min===null||pts<min)min=pts;
+  });
+  return min===null?seedPointsForRank(100):min;
 }
 
 let STATE=freshState(); // placeholder until the async load below resolves
@@ -680,7 +744,7 @@ function applyCutIfNeeded(defId){
   const ar=inst.cutAppliedAfterRound;
   const allDone=inst.rounds.slice(0,ar).every(r=>inst.field.every(pid=>r.scores[pid].every(v=>v!=null)));
   if(!allDone)return;
-  const lb=computeLeaderboard(defId);const cutSize=Math.max(2,Math.min(10,Math.ceil(inst.field.length*0.65)));
+  const lb=computeLeaderboard(defId);const cutSize=Math.max(2,Math.round(inst.field.length*0.5));
   const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=new Set();
   if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.add(r.playerId);});}
   inst.cutPlayers=made;saveState();
@@ -1142,7 +1206,13 @@ function openPlayerModal(playerId){
     const country=document.getElementById('pm-country').value;const attrs={};
     ATTRS.forEach(a=>attrs[a.key]=clamp(parseInt(document.getElementById(`pm-attr-${a.key}`).value,10),1,99));
     if(editing){p.name=name;p.country=country;p.attrs=attrs;p.overall=overallOf(attrs);}
-    else STATE.players.push({id:uid('plyr'),name,country,attrs,overall:overallOf(attrs),career:{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]}});
+    else{
+      const newId=uid('plyr');
+      const entryPts=lowestWorldRankingPoints(); // slot in behind the current last-ranked player, not at 0
+      STATE.players.push({id:newId,name,country,attrs,overall:overallOf(attrs),career:{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]}});
+      if(!STATE.worldRanking)STATE.worldRanking={};
+      STATE.worldRanking[newId]={pts:entryPts,history:[{trnId:'seed',trnName:'Tour Entry',pos:null,pts:entryPts,season:STATE.seasonNumber,major:false,playoff:false,seed:true}]};
+    }
     saveState();closeModal();renderRoster();refreshTopbar();
     showToast(editing?`${name} updated.`:`${name} added to the roster.`);
   });
