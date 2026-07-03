@@ -21,6 +21,31 @@ body{background:var(--paper-100);background-image:radial-gradient(ellipse at top
 @media(prefers-reduced-motion:reduce){*{animation-duration:0.001ms!important;transition-duration:0.001ms!important;}}
 @media(max-width:880px){.topbar{flex-wrap:wrap;gap:10px;padding:12px 16px;}.nav-tabs{order:3;width:100%;overflow-x:auto;}.topbar-right{order:2;}main{padding:16px;}.play-grid-2col{grid-template-columns:1fr!important;}}
 @media(max-width:520px){.brand-text h1{font-size:16px;}.season-pill{display:none;}}
+/* ── Tee-time group selector: a wrapping grid instead of a side-scrolling
+   row. This is what previously forced people to keep swiping/scrolling
+   sideways to reach every group on both phones and laptops. ── */
+.tee-group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;margin-bottom:10px;}
+.tee-group-grid .btn{width:100%;white-space:nowrap;}
+.tee-group-grid .btn.is-done{opacity:0.55;}
+/* Player chips for the active group */
+.player-chip-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.player-chip{display:flex;align-items:center;gap:6px;padding:7px 12px 7px 7px;border-radius:20px;border:1px solid var(--line);background:#fff;color:var(--ink-900);font-size:12px;transition:background .15s,transform .1s;}
+.player-chip:active:not(:disabled){transform:translateY(1px);}
+.player-chip.active{border-color:var(--turf-700);background:var(--turf-700);color:#fff;}
+.player-chip:disabled{opacity:0.5;}
+/* Simulate-round control rows (group / selected / whole field) */
+.sim-controls-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:10px;}
+.sim-controls-row .row-label{font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);}
+@media(max-width:600px){
+  /* Smaller screens: tighter grid, taller tap targets, and stack the sim
+     buttons full-width so nothing needs a sideways swipe to reach. */
+  .tee-group-grid{grid-template-columns:repeat(auto-fill,minmax(72px,1fr));}
+  .tee-group-grid .btn,.sim-controls-row .btn{min-height:38px;}
+  .player-chip{font-size:13px;padding:9px 14px 9px 9px;}
+  .sim-controls-row .row-label{width:100%;margin-bottom:2px;}
+  .sim-controls-row{flex-direction:column;align-items:stretch;}
+  .sim-controls-row .btn{width:100%;}
+}
 h1,h2,h3,h4{font-family:'Oswald',sans-serif;margin:0;letter-spacing:0.01em;}
 .num{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-variant-numeric:tabular-nums;}
 a{color:inherit;}button{font-family:inherit;cursor:pointer;}
@@ -2337,35 +2362,35 @@ function renderPlayPanel(defId,roundIdx,lb){
   panel.innerHTML=`<div class="card" style="padding:16px;margin-bottom:14px;">
     <div class="eyebrow" style="margin-bottom:8px;">Round ${roundIdx+1} · ${pending.length} players still on course${rankingBased?' · tee groups set by ranking':''}</div>
 
-    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;" class="scrollbar-thin">
+    <div class="tee-group-grid">
       ${groups.map((g,gi)=>{
         const doneCount=g.filter(pid=>!pending.includes(pid)).length;
         const allDone=g.length>0&&doneCount===g.length;
         const active=gi===activeGroupIdx;
-        return`<button data-select-group="${gi}" class="btn ${active?'':'ghost'} btn-sm" style="flex-shrink:0;white-space:nowrap;${allDone?'opacity:0.55;':''}">
+        return`<button data-select-group="${gi}" class="btn ${active?'':'ghost'} btn-sm ${allDone?'is-done':''}">
           Grp ${gi+1} ${allDone?'✓':`(${g.length-doneCount}/${g.length})`}
         </button>`;}).join('')}
     </div>
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+    <div class="player-chip-row">
       ${groupPids.map(pid=>{
         const p=getPlayer(pid);const isPending=pending.includes(pid);
         const holeIdx=isPending?nextOpenHoleIdx(inst,roundIdx,pid):18;const active=pid===PLAY_UI.selectedPlayerId;
-        return`<button class="player-chip" data-select-player="${pid}" ${isPending?'':'disabled'} style="display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:20px;border:1px solid ${active?'var(--turf-700)':'var(--line)'};background:${active?'var(--turf-700)':'#fff'};color:${active?'#fff':'var(--ink-900)'};font-size:12px;transition:background .15s;${isPending?'':'opacity:0.5;'}">
+        return`<button class="player-chip ${active?'active':''}" data-select-player="${pid}" ${isPending?'':'disabled'}>
           <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
           ${escapeHTML(p.name)} <span style="opacity:0.7;">${isPending?'· H'+(holeIdx+1):'· done'}</span>
         </button>`;}).join('')}
     </div>
 
-    <div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Group ${activeGroupIdx+1}:</span>
+    <div class="sim-controls-row">
+      <span class="row-label">Group ${activeGroupIdx+1}:</span>
       <button class="btn ghost btn-sm" id="sim-group-hole-btn" ${groupPending.length===0?'disabled':''} title="Simulate current hole for this group only">Group · next hole</button>
       <button class="btn ghost btn-sm" id="sim-group-round-btn" ${groupPending.length===0?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;" title="Simulate the rest of the round for this group only">Group · full round</button>
       <button class="btn ghost btn-sm" id="sim-selected-hole-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} title="Simulate next hole for selected player only">Selected · hole</button>
       <button class="btn ghost btn-sm" id="sim-selected-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;">Selected · full round</button>
     </div>
-    <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Whole field:</span>
+    <div class="sim-controls-row" style="margin-top:10px;">
+      <span class="row-label">Whole field:</span>
       <button class="btn ghost btn-sm" id="sim-all-hole-btn" title="Simulate current hole for all pending players">All · next hole</button>
       <button class="btn ghost btn-sm" id="sim-all-round-btn" style="border-color:var(--board-amber);color:#7a5a0a;">All · full round</button>
     </div>
