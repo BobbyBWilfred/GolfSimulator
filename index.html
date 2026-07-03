@@ -154,61 +154,49 @@ function courseVariant(seedShift,yardBase){
 }
 
 const TOURNAMENT_SEEDS=[
-  // ── Fall Swing (season opener) ──
-  {name:"Procore Championship",course:"Silverado Resort (North)",loc:"Napa, CA",major:false,purse:8.4,seed:19,yard:-6},
-  {name:"Sanderson Farms Championship",course:"Country Club of Jackson",loc:"Jackson, MS",major:false,purse:4.0,seed:21,yard:-8},
-  {name:"Shriners Children's Open",course:"TPC Summerlin",loc:"Las Vegas, NV",major:false,purse:8.6,seed:20,yard:-9},
-  {name:"ZOZO Championship",course:"Accordia Golf Narashino CC",loc:"Chiba, Japan",major:false,purse:8.3,seed:24,yard:-2},
-  {name:"Butterfield Bermuda Championship",course:"Port Royal Golf Course",loc:"Southampton, Bermuda",major:false,purse:3.9,seed:22,yard:-3},
-  {name:"World Wide Technology Championship",course:"Cabo Del Sol",loc:"Los Cabos, Mexico",major:false,purse:8.4,seed:23,yard:4},
-  {name:"The RSM Classic",course:"Sea Island Golf Club",loc:"St. Simons Island, GA",major:false,purse:8.7,seed:25,yard:-7},
-  // ── Winter / West Coast Swing ──
-  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0},
-  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:8.3,seed:2,yard:-10},
-  {name:"Farmers Insurance Open",course:"Torrey Pines GC",loc:"San Diego, CA",major:false,purse:9.3,seed:26,yard:6},
-  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:3,yard:-5},
-  {name:"The Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:27,yard:9},
-  {name:"Mexico Open at VidantaWorld",course:"Vidanta Vallarta",loc:"Nuevo Vallarta, Mexico",major:false,purse:8.1,seed:28,yard:-4},
-  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.2,seed:29,yard:-2},
-  {name:"Puerto Rico Open",course:"Grand Reserve CC",loc:"Rio Grande, Puerto Rico",major:false,purse:4.0,seed:30,yard:-9},
-  // ── Florida / Texas Swing into the Masters ──
-  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:4,yard:10},
-  {name:"THE PLAYERS Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:5,yard:5},
-  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:8.9,seed:31,yard:3},
-  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.5,seed:32,yard:7},
-  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.6,seed:33,yard:5},
-  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:20,seed:6,yard:15},
-  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:7,yard:-20},
-  // ── Spring into the PGA Championship ──
-  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:9.8,seed:35,yard:4},
-  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:18.5,seed:8,yard:20},
-  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.7,seed:9,yard:-15},
-  {name:"the Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:10,yard:8},
-  {name:"Myrtle Beach Classic",course:"Dunes Golf & Beach Club",loc:"Myrtle Beach, SC",major:false,purse:4.0,seed:36,yard:-8},
-  // ── U.S. Open Swing ──
-  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:21.5,seed:11,yard:18},
-  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:12,yard:-12},
-  {name:"Corales Puntacana Championship",course:"Puntacana Resort (Corales)",loc:"Punta Cana, Dominican Republic",major:false,purse:4.0,seed:34,yard:-6},
-  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:9.4,seed:37,yard:-1},
-  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:7.5,seed:13,yard:-18},
-  {name:"ISCO Championship",course:"Hurstbourne Country Club",loc:"Louisville, KY",major:false,purse:4.0,seed:38,yard:-6},
-  // ── The Open Championship Swing ──
-  // Team Event — fantasy teams compete directly
-  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:14,yard:0,teamEvent:false},
-  {name:"Barracuda Championship",course:"Old Greenwood",loc:"Truckee, CA",major:false,purse:4.0,seed:39,yard:-14},
-  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.4,seed:41,yard:-5},
-  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.2,seed:40,yard:-10},
-  // ── FedExCup Playoffs ──
-  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:16,yard:6,playoff:true},
-  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:17,yard:22,playoff:true},
-  {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:75,seed:18,yard:4,playoff:true},
-  // ── Ryder Cup (odd seasons only) ──
-  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:15,yard:0,rydercup:true},
+  // ── Full season calendar, chronological, all stroke play ──
+  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0,date:"Jan 11"},
+  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:9.1,seed:2,yard:-10,date:"Jan 18"},
+  {name:"The American Express",course:"PGA West (Stadium Course)",loc:"La Quinta, CA",major:false,purse:9.2,seed:3,yard:-8,date:"Jan 25"},
+  {name:"Farmers Insurance Open",course:"Torrey Pines GC (South)",loc:"San Diego, CA",major:false,purse:9.6,seed:4,yard:6,date:"Feb 1"},
+  {name:"WM Phoenix Open",course:"TPC Scottsdale (Stadium)",loc:"Scottsdale, AZ",major:false,purse:9.6,seed:5,yard:-4,date:"Feb 8"},
+  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:6,yard:-5,date:"Feb 15"},
+  {name:"Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:7,yard:9,date:"Feb 22"},
+  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.6,seed:8,yard:-2,date:"Mar 1"},
+  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:9,yard:10,date:"Mar 8"},
+  {name:"The Players Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:10,yard:5,date:"Mar 15"},
+  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:9.1,seed:11,yard:3,date:"Mar 22"},
+  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.9,seed:12,yard:7,date:"Mar 29"},
+  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.8,seed:13,yard:5,date:"Apr 5"},
+  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:22.5,seed:14,yard:15,date:"Apr 12"},
+  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:15,yard:-20,date:"Apr 19"},
+  {name:"Zurich Classic of New Orleans",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:9.5,seed:16,yard:-3,date:"Apr 26"},
+  {name:"Cadillac Championship",course:"Trump National Doral (Blue Monster)",loc:"Doral, FL",major:false,purse:20,seed:17,yard:8,date:"May 3"},
+  {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:18,yard:2,date:"May 10"},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17"},
+  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:10.3,seed:20,yard:4,date:"May 24"},
+  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.9,seed:21,yard:-15,date:"May 31"},
+  {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:22,yard:8,date:"Jun 7"},
+  {name:"RBC Canadian Open",course:"TPC Toronto at Osprey Valley",loc:"Caledon, ON",major:false,purse:9.8,seed:23,yard:-6,date:"Jun 14"},
+  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:22.5,seed:24,yard:18,date:"Jun 21"},
+  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:25,yard:-12,date:"Jun 29"},
+  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:8.8,seed:26,yard:-18,date:"Jul 5"},
+  {name:"Genesis Scottish Open",course:"The Renaissance Club",loc:"North Berwick, Scotland",major:false,purse:9.0,seed:27,yard:-9,date:"Jul 12"},
+  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:28,yard:0,date:"Jul 19"},
+  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.8,seed:29,yard:-5,date:"Jul 26"},
+  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:10.0,seed:30,yard:-1,date:"Aug 2"},
+  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.5,seed:31,yard:-10,date:"Aug 9"},
+  // ── FedExCup Playoffs (no cut) ──
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,date:"Aug 16"},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,date:"Aug 23"},
+  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,date:"Aug 30"},
+  // ── Ryder Cup — odd seasons only, immediately after the Tour Championship ──
+  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep"},
 ];
 
 function buildTournamentDefs(){
   return TOURNAMENT_SEEDS.map((t,idx)=>({
-    id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,
+    id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,date:t.date,
     major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
     holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
   }));
@@ -740,7 +728,8 @@ function computeLeaderboard(defId){
 
 function applyCutIfNeeded(defId){
   const inst=getInstance(defId);const def=getDef(defId);
-  if(!def||def.rounds!==4)return;if(inst.cutPlayers)return;
+  if(!def||def.rounds!==4)return;if(def.playoff)return; // FedEx Cup Playoff events carry the full field, no cut
+  if(inst.cutPlayers)return;
   const ar=inst.cutAppliedAfterRound;
   const allDone=inst.rounds.slice(0,ar).every(r=>inst.field.every(pid=>r.scores[pid].every(v=>v!=null)));
   if(!allDone)return;
@@ -1845,7 +1834,7 @@ function renderSchedule(){
   }
   ensureScheduleForSeason();
   const seasonDone=isSeasonComplete();
-  const rcNote=isRyderCupSeason(STATE.seasonNumber)?` · 🏆 Ryder Cup Season`:'';el.innerHTML=`<div class="section-head"><div><span class="eyebrow">Season ${STATE.seasonNumber} &middot; 20 Events${rcNote}</span><h2>Tour Schedule</h2></div></div>
+  const rcNote=isRyderCupSeason(STATE.seasonNumber)?` · 🏆 Ryder Cup Season`:'';el.innerHTML=`<div class="section-head"><div><span class="eyebrow">Season ${STATE.seasonNumber} &middot; ${TOURNAMENT_SEEDS.filter(t=>!t.rydercup).length} Events${rcNote}</span><h2>Tour Schedule</h2></div></div>
   ${seasonDone?seasonCompleteBannerHTML():''}
   <div style="display:flex;flex-direction:column;gap:8px;">${STATE.schedule.map((inst,i)=>scheduleRowHTML(inst,i)).join('')}</div>`;
   document.getElementById('start-next-season-btn')?.addEventListener('click',()=>{
@@ -1891,7 +1880,7 @@ function scheduleRowHTML(inst,i){
         ${def.rydercup?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 RYDER CUP</span>`:''}
         ${statusBadge(inst.status)}
       </div>
-      <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.course} · ${def.location} · ${def.rounds} rounds · $${def.purseM}M purse</div>
+      <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.date?`${def.date} · `:''}${def.course} · ${def.location} · ${def.rounds} rounds${def.playoff?' · No Cut':''} · $${def.purseM}M purse</div>
       ${leaderTxt?`<div style="font-size:12px;color:var(--turf-700);margin-top:3px;font-weight:600;">${inst.status==='complete'?'Won by':'Leader:'} ${leaderTxt}</div>`:''}
     </div>
     ${isRyderCupRow&&inst.status==='scheduled'&&!isRyderCupSeason(STATE.seasonNumber)?
@@ -2168,7 +2157,7 @@ function openFieldModal(defId){
 }
 
 /* ===== TOURNAMENT VIEW ===== */
-let PLAY_UI={defId:null,roundIdx:0,selectedPlayerId:null,holeIdx:0,holeState:null};
+let PLAY_UI={defId:null,roundIdx:0,selectedPlayerId:null,holeIdx:0,holeState:null,selectedGroupIdx:0};
 
 function lieLabel(lie){return{tee:'Tee',fairway:'Fairway',rough:'Rough',sand:'Bunker',recovery:'Trouble',green:'Green',hole:'Holed'}[lie]||lie;}
 function lieColor(lie){return{tee:'var(--turf-700)',fairway:'var(--turf-600)',rough:'#8a6d2f',sand:'var(--board-amber)',recovery:'var(--flag-red)',green:'var(--turf-700)',hole:'var(--turf-900)'}[lie]||'var(--ink-700)';}
@@ -2296,6 +2285,34 @@ function activePlayersForRound(inst,roundIdx){
 }
 function nextOpenHoleIdx(inst,roundIdx,pid){const arr=inst.rounds[roundIdx].scores[pid];for(let i=0;i<18;i++)if(arr[i]==null)return i;return -1;}
 
+/* ===== TEE TIME GROUPS =====
+   Splits the field into small tee groups (like real tee sheets) so the UI
+   never has to list every player in the event at once.
+   Round 1 & 2: grouped in field order (as the field was set).
+   Round 3 onward: regrouped by current standings — trailing players go out
+   first, the leaders' group tees off last, same as a real broadcast round. */
+const TEE_GROUP_SIZE=4;
+function ensureTeeGroups(inst,def,defId,roundIdx){
+  const rd=inst.rounds[roundIdx];
+  if(rd.teeGroups&&rd.teeGroups.length)return rd.teeGroups;
+  const eligible=inst.field.filter(pid=>!(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound));
+  const rankingBased=roundIdx>=2;
+  let order;
+  if(rankingBased){
+    const lb=computeLeaderboard(defId);
+    const rankMap={};lb.forEach((row,i)=>{rankMap[row.playerId]=i;});
+    order=eligible.slice().sort((a,b)=>(rankMap[a]??999)-(rankMap[b]??999));
+  }else{
+    order=eligible.slice();
+  }
+  const groups=[];
+  for(let i=0;i<order.length;i+=TEE_GROUP_SIZE)groups.push(order.slice(i,i+TEE_GROUP_SIZE));
+  if(rankingBased)groups.reverse(); // weakest group off first, leaders' group off last
+  rd.teeGroups=groups;
+  saveState();
+  return groups;
+}
+
 function renderPlayPanel(defId,roundIdx,lb){
   const inst=getInstance(defId);const def=getDef(defId);const panel=document.getElementById('play-panel');
   const pending=activePlayersForRound(inst,roundIdx);
@@ -2305,30 +2322,93 @@ function renderPlayPanel(defId,roundIdx,lb){
   }
   if(!pending.includes(PLAY_UI.selectedPlayerId)){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
 
-  // Build bulk simulate controls
-  const currentHoleIdx=PLAY_UI.selectedPlayerId?PLAY_UI.holeIdx:null;
+  const groups=ensureTeeGroups(inst,def,defId,roundIdx);
+  const rankingBased=roundIdx>=2;
+  // Keep the group selector in sync with whichever player is active
+  if(PLAY_UI.selectedPlayerId){
+    const gi=groups.findIndex(g=>g.includes(PLAY_UI.selectedPlayerId));
+    if(gi!==-1)PLAY_UI.selectedGroupIdx=gi;
+  }
+  if(PLAY_UI.selectedGroupIdx==null||PLAY_UI.selectedGroupIdx<0||PLAY_UI.selectedGroupIdx>=groups.length)PLAY_UI.selectedGroupIdx=0;
+  const activeGroupIdx=PLAY_UI.selectedGroupIdx;
+  const groupPids=groups[activeGroupIdx]||[];
+  const groupPending=groupPids.filter(pid=>pending.includes(pid));
+
   panel.innerHTML=`<div class="card" style="padding:16px;margin-bottom:14px;">
-    <div class="eyebrow" style="margin-bottom:8px;">Round ${roundIdx+1} · ${pending.length} players still on course</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-      ${pending.map(pid=>{
-        const p=getPlayer(pid);const holeIdx=nextOpenHoleIdx(inst,roundIdx,pid);const active=pid===PLAY_UI.selectedPlayerId;
-        return`<button class="player-chip" data-select-player="${pid}" style="display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:20px;border:1px solid ${active?'var(--turf-700)':'var(--line)'};background:${active?'var(--turf-700)':'#fff'};color:${active?'#fff':'var(--ink-900)'};font-size:12px;transition:background .15s;">
-          <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
-          ${escapeHTML(p.name)} <span style="opacity:0.7;">· H${holeIdx+1}</span>
+    <div class="eyebrow" style="margin-bottom:8px;">Round ${roundIdx+1} · ${pending.length} players still on course${rankingBased?' · tee groups set by ranking':''}</div>
+
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:10px;" class="scrollbar-thin">
+      ${groups.map((g,gi)=>{
+        const doneCount=g.filter(pid=>!pending.includes(pid)).length;
+        const allDone=g.length>0&&doneCount===g.length;
+        const active=gi===activeGroupIdx;
+        return`<button data-select-group="${gi}" class="btn ${active?'':'ghost'} btn-sm" style="flex-shrink:0;white-space:nowrap;${allDone?'opacity:0.55;':''}">
+          Grp ${gi+1} ${allDone?'✓':`(${g.length-doneCount}/${g.length})`}
         </button>`;}).join('')}
     </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      ${groupPids.map(pid=>{
+        const p=getPlayer(pid);const isPending=pending.includes(pid);
+        const holeIdx=isPending?nextOpenHoleIdx(inst,roundIdx,pid):18;const active=pid===PLAY_UI.selectedPlayerId;
+        return`<button class="player-chip" data-select-player="${pid}" ${isPending?'':'disabled'} style="display:flex;align-items:center;gap:6px;padding:6px 10px 6px 6px;border-radius:20px;border:1px solid ${active?'var(--turf-700)':'var(--line)'};background:${active?'var(--turf-700)':'#fff'};color:${active?'#fff':'var(--ink-900)'};font-size:12px;transition:background .15s;${isPending?'':'opacity:0.5;'}">
+          <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
+          ${escapeHTML(p.name)} <span style="opacity:0.7;">${isPending?'· H'+(holeIdx+1):'· done'}</span>
+        </button>`;}).join('')}
+    </div>
+
     <div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Simulate:</span>
-      <button class="btn ghost btn-sm" id="sim-all-hole-btn" title="Simulate current hole for all pending players">All players · next hole</button>
-      <button class="btn ghost btn-sm" id="sim-selected-hole-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} title="Simulate next hole for selected player only">Selected player · hole</button>
-      <button class="btn ghost btn-sm" id="sim-all-round-btn" style="border-color:var(--board-amber);color:#7a5a0a;">All players · full round</button>
+      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Group ${activeGroupIdx+1}:</span>
+      <button class="btn ghost btn-sm" id="sim-group-hole-btn" ${groupPending.length===0?'disabled':''} title="Simulate current hole for this group only">Group · next hole</button>
+      <button class="btn ghost btn-sm" id="sim-group-round-btn" ${groupPending.length===0?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;" title="Simulate the rest of the round for this group only">Group · full round</button>
+      <button class="btn ghost btn-sm" id="sim-selected-hole-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} title="Simulate next hole for selected player only">Selected · hole</button>
       <button class="btn ghost btn-sm" id="sim-selected-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;">Selected · full round</button>
+    </div>
+    <div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+      <span style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;color:var(--ink-500);">Whole field:</span>
+      <button class="btn ghost btn-sm" id="sim-all-hole-btn" title="Simulate current hole for all pending players">All · next hole</button>
+      <button class="btn ghost btn-sm" id="sim-all-round-btn" style="border-color:var(--board-amber);color:#7a5a0a;">All · full round</button>
     </div>
   </div>
   <div id="hole-control"></div>`;
 
+  panel.querySelectorAll('[data-select-group]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      PLAY_UI.selectedGroupIdx=parseInt(btn.dataset.selectGroup,10);
+      if(PLAY_UI.selectedPlayerId&&!groups[PLAY_UI.selectedGroupIdx].includes(PLAY_UI.selectedPlayerId)){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
+      renderTournament();
+    });
+  });
+
   panel.querySelectorAll('[data-select-player]').forEach(btn=>{
     btn.addEventListener('click',()=>selectPlayerForPlay(defId,roundIdx,btn.dataset.selectPlayer));
+  });
+
+  // Sim: next hole for this group only
+  document.getElementById('sim-group-hole-btn')?.addEventListener('click',()=>{
+    const gp=groupPids.filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
+    if(gp.length===0)return;
+    const holes=gp.map(pid=>nextOpenHoleIdx(inst,roundIdx,pid)).filter(h=>h>=0);
+    const minHole=Math.min(...holes);
+    const toSim=gp.filter(pid=>nextOpenHoleIdx(inst,roundIdx,pid)===minHole);
+    simulateHoleForPlayers(defId,roundIdx,minHole,toSim);
+    showToast(`Simulated hole ${minHole+1} for Group ${activeGroupIdx+1} (${toSim.length} players).`);
+    if(PLAY_UI.selectedPlayerId&&inst.rounds[roundIdx].scores[PLAY_UI.selectedPlayerId][PLAY_UI.holeIdx]!=null){
+      const next=nextOpenHoleIdx(inst,roundIdx,PLAY_UI.selectedPlayerId);
+      if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
+      else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+    }
+    renderTournament();
+  });
+
+  // Sim: full round for this group only
+  document.getElementById('sim-group-round-btn')?.addEventListener('click',()=>{
+    const gp=groupPids.filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
+    if(gp.length===0)return;
+    simulateRoundForPlayers(defId,roundIdx,gp);
+    PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;
+    showToast(`Simulated full round ${roundIdx+1} for Group ${activeGroupIdx+1} (${gp.length} players).`);
+    renderTournament();
   });
 
   // Bulk sim: next hole for all pending players
