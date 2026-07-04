@@ -299,6 +299,16 @@ function normalizeState(p){
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
   p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.rydercupHistory)p.rydercupHistory=[];
+  // Repair: older saves stored cutPlayers as a JS Set, which JSON.stringify
+  // silently flattens to "{}" (all data lost) on every save/load round trip.
+  // Any tournament instance loaded with a non-array cutPlayers is corrupted
+  // from that old bug — safest recovery is to treat it as "no cut recorded"
+  // (nobody wrongly excluded) rather than crash the app.
+  p.schedule.forEach(inst=>{
+    if(inst&&inst.cutPlayers!=null&&!Array.isArray(inst.cutPlayers)){
+      inst.cutPlayers=null;
+    }
+  });
   // Backfill: existing saves made before World Ranking seeding was added had every
   // player parked at 0 pts until they actually played a tournament. Give any player
   // with no WR history yet a preseason baseline instead — real top-100 players get
@@ -731,7 +741,7 @@ function computeLeaderboard(defId){
   const inst=getInstance(defId);const def=getDef(defId);if(!inst)return[];
   const rows=inst.field.map(pid=>{
     let strokes=0,holesPlayed=0,parPlayed=0;
-    const cutOut=inst.cutPlayers&&!inst.cutPlayers.has(pid);
+    const cutOut=inst.cutPlayers&&!inst.cutPlayers.includes(pid);
     for(let r=0;r<inst.rounds.length;r++){
       const rd=inst.rounds[r];const arr=rd.scores[pid]||[];
       for(let h=0;h<18;h++){if(arr[h]!=null){strokes+=arr[h];holesPlayed++;parPlayed+=def.holes[h].par;}}
@@ -759,15 +769,15 @@ function applyCutIfNeeded(defId){
   const allDone=inst.rounds.slice(0,ar).every(r=>inst.field.every(pid=>r.scores[pid].every(v=>v!=null)));
   if(!allDone)return;
   const lb=computeLeaderboard(defId);const cutSize=Math.max(2,Math.round(inst.field.length*0.5));
-  const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=new Set();
-  if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.add(r.playerId);});}
+  const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=[];
+  if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.push(r.playerId);});}
   inst.cutPlayers=made;saveState();
 }
 
 function isRoundComplete(inst,roundIdx){
   const rd=inst.rounds[roundIdx];
   return inst.field.every(pid=>{
-    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return true;
+    if(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound)return true;
     return rd.scores[pid].every(v=>v!=null);
   });
 }
@@ -2220,7 +2230,7 @@ function renderTournament(){
     <div><span class="eyebrow">${def.major?'MAJOR · ':''}${def.teamEvent?'🏆 TEAM EVENT · ':''}${def.course} · ${def.location}</span><h2>${def.name}</h2></div>
     <div style="text-align:right;">
       <div class="eyebrow">${isComplete?'Final':`Round ${roundIdx+1} of ${inst.rounds.length}`}</div>
-      ${inst.cutPlayers?`<div style="font-size:11px;color:var(--ink-500);">${inst.cutPlayers.size} players made cut</div>`:''}
+      ${inst.cutPlayers?`<div style="font-size:11px;color:var(--ink-500);">${inst.cutPlayers.length} players made cut</div>`:''}
     </div>
   </div>
   <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
@@ -2304,7 +2314,7 @@ function renderCompletePanel(defId,lb){
 /* ===== PLAY PANEL ===== */
 function activePlayersForRound(inst,roundIdx){
   return inst.field.filter(pid=>{
-    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return false;
+    if(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound)return false;
     return inst.rounds[roundIdx].scores[pid].some(v=>v==null);
   });
 }
@@ -2320,7 +2330,7 @@ const TEE_GROUP_SIZE=4;
 function ensureTeeGroups(inst,def,defId,roundIdx){
   const rd=inst.rounds[roundIdx];
   if(rd.teeGroups&&rd.teeGroups.length)return rd.teeGroups;
-  const eligible=inst.field.filter(pid=>!(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound));
+  const eligible=inst.field.filter(pid=>!(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound));
   const rankingBased=roundIdx>=2;
   let order;
   if(rankingBased){
