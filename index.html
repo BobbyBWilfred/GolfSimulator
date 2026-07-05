@@ -299,16 +299,6 @@ function normalizeState(p){
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
   p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.rydercupHistory)p.rydercupHistory=[];
-  // Repair: older saves stored cutPlayers as a JS Set, which JSON.stringify
-  // silently flattens to "{}" (all data lost) on every save/load round trip.
-  // Any tournament instance loaded with a non-array cutPlayers is corrupted
-  // from that old bug — safest recovery is to treat it as "no cut recorded"
-  // (nobody wrongly excluded) rather than crash the app.
-  p.schedule.forEach(inst=>{
-    if(inst&&inst.cutPlayers!=null&&!Array.isArray(inst.cutPlayers)){
-      inst.cutPlayers=null;
-    }
-  });
   // Backfill: existing saves made before World Ranking seeding was added had every
   // player parked at 0 pts until they actually played a tournament. Give any player
   // with no WR history yet a preseason baseline instead — real top-100 players get
@@ -628,9 +618,43 @@ function showToast(msg,bad){
 /* ===== SIMULATION ENGINE ===== */
 function newHoleState(holeDef){
   return{hole:holeDef.hole,par:holeDef.par,totalYards:holeDef.yards,remaining:holeDef.yards,
-    lie:'tee',strokes:0,holedOut:false,log:[],puttDistanceFt:null,eagles:0,birdies:0,bogeys:0,doubles:0};
+    lie:'tee',strokes:0,holedOut:false,log:[],puttDistanceFt:null,eagles:0,birdies:0,bogeys:0,doubles:0,
+    sg:{ott:0,app:0,arg:0,putt:0,total:0}};
 }
 function skillFactor(skill){return 0.55+(skill/99)*0.9;}
+
+/* ===== STROKES GAINED ENGINE =====
+   Lightweight approximation of PGA Tour-style Strokes Gained. Every shot
+   is bucketed the same way the game already buckets shots (chooseShotType)
+   into: Off-The-Tee (ott), Approach (app), Around-the-Green (arg), Putting
+   (putt). For each shot we estimate "expected strokes to finish the hole
+   from here" both before and after the shot using simple baseline curves,
+   and SG for that shot = expectedBefore - expectedAfter - 1. Summed across
+   a round/event/season this reproduces the shape of real SG stats. */
+const SG_CATEGORY={tee_long:'ott',approach:'app',long_approach:'app',chip:'arg',bunker:'arg',putt:'putt'};
+function lerpTable(table,x){
+  if(x<=table[0][0])return table[0][1];
+  for(let i=0;i<table.length-1;i++){
+    const x0=table[i][0],y0=table[i][1],x1=table[i+1][0],y1=table[i+1][1];
+    if(x<=x1)return y0+(y1-y0)*((x-x0)/(x1-x0));
+  }
+  return table[table.length-1][1];
+}
+const SG_TEE_TABLE=[[100,2.9],[150,3.1],[200,3.5],[250,3.8],[300,4.0],[350,4.15],[400,4.3],[450,4.45],[500,4.55],[550,4.65],[600,4.75]];
+const SG_APP_TABLE=[[20,2.4],[40,2.6],[60,2.75],[80,2.85],[100,2.9],[125,3.05],[150,3.2],[175,3.35],[200,3.5],[225,3.65],[250,3.8]];
+const SG_ARG_TABLE=[[0,1.0],[3,1.6],[6,1.9],[10,2.1],[15,2.25],[20,2.35],[30,2.5]];
+const SG_PUTT_TABLE=[[1,1.001],[2,1.02],[3,1.04],[4,1.14],[5,1.2],[6,1.25],[8,1.35],[10,1.45],[15,1.65],[20,1.8],[25,1.9],[30,1.98],[40,2.15],[50,2.25],[60,2.35]];
+function sgExpectedToFinish(hs){
+  if(hs.holedOut)return 0;
+  if(hs.lie==='green')return lerpTable(SG_PUTT_TABLE,hs.puttDistanceFt||3);
+  if(hs.remaining>230)return lerpTable(SG_TEE_TABLE,hs.remaining);
+  const base=hs.remaining<=30?lerpTable(SG_ARG_TABLE,hs.remaining):lerpTable(SG_APP_TABLE,hs.remaining);
+  const lieMult=hs.lie==='rough'?1.06:hs.lie==='sand'?1.12:hs.lie==='recovery'?1.22:1.0;
+  return base*lieMult;
+}
+function emptySG(){return{ott:0,app:0,arg:0,putt:0,total:0};}
+function addSG(target,src){if(!src)return target;target.ott+=src.ott||0;target.app+=src.app||0;target.arg+=src.arg||0;target.putt+=src.putt||0;target.total+=src.total||0;return target;}
+function roundSGVals(sg){return{ott:+sg.ott.toFixed(2),app:+sg.app.toFixed(2),arg:+sg.arg.toFixed(2),putt:+sg.putt.toFixed(2),total:+sg.total.toFixed(2)};}
 function chooseShotType(hs){
   if(hs.lie==='green')return 'putt';
   if(hs.lie==='sand')return hs.remaining<=40?'bunker':'approach';
@@ -706,13 +730,19 @@ function resolvePutt(hs,attrs){
 }
 
 function playShot(hs,attrs){
+  const sgBefore=sgExpectedToFinish(hs);
   hs.strokes+=1;const shotType=chooseShotType(hs);let res;
   if(shotType==='tee_long')res=resolveFullSwing(hs,attrs,'tee_long');
   else if(shotType==='approach'||shotType==='long_approach')res=resolveFullSwing(hs,attrs,shotType);
   else if(shotType==='chip')res=resolveChip(hs,attrs);
   else if(shotType==='bunker')res=resolveBunker(hs,attrs);
   else res=resolvePutt(hs,attrs);
-  res.shotType=shotType;res.strokeNum=hs.strokes;hs.log.push(res.text);
+  const sgAfter=hs.holedOut?0:sgExpectedToFinish(hs);
+  const sgVal=sgBefore-sgAfter-1;
+  const cat=SG_CATEGORY[shotType]||'app';
+  if(!hs.sg)hs.sg={ott:0,app:0,arg:0,putt:0,total:0};
+  hs.sg[cat]+=sgVal;hs.sg.total+=sgVal;
+  res.shotType=shotType;res.strokeNum=hs.strokes;res.sg=sgVal;hs.log.push(res.text);
   if(hs.strokes>=12&&!hs.holedOut){hs.holedOut=true;hs.forcedPickup=true;res.text+=' Picks up — max score.';}
   return res;
 }
@@ -734,6 +764,7 @@ function startTournament(defId,fieldPlayerIds){
     inst.rounds.push({roundNum:r,scores,complete:false});
   }
   inst.cutAppliedAfterRound=def.rounds===4?2:null;inst.cutPlayers=null;
+  inst.sg={};fieldPlayerIds.forEach(pid=>{inst.sg[pid]={ott:0,app:0,arg:0,putt:0,total:0,holes:0};});
   STATE.activeTournamentId=defId;saveState();
 }
 
@@ -741,7 +772,7 @@ function computeLeaderboard(defId){
   const inst=getInstance(defId);const def=getDef(defId);if(!inst)return[];
   const rows=inst.field.map(pid=>{
     let strokes=0,holesPlayed=0,parPlayed=0;
-    const cutOut=inst.cutPlayers&&!inst.cutPlayers.includes(pid);
+    const cutOut=inst.cutPlayers&&!inst.cutPlayers.has(pid);
     for(let r=0;r<inst.rounds.length;r++){
       const rd=inst.rounds[r];const arr=rd.scores[pid]||[];
       for(let h=0;h<18;h++){if(arr[h]!=null){strokes+=arr[h];holesPlayed++;parPlayed+=def.holes[h].par;}}
@@ -769,15 +800,15 @@ function applyCutIfNeeded(defId){
   const allDone=inst.rounds.slice(0,ar).every(r=>inst.field.every(pid=>r.scores[pid].every(v=>v!=null)));
   if(!allDone)return;
   const lb=computeLeaderboard(defId);const cutSize=Math.max(2,Math.round(inst.field.length*0.5));
-  const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=[];
-  if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.push(r.playerId);});}
+  const sorted=lb.slice().sort((a,b)=>a.toPar-b.toPar);const made=new Set();
+  if(sorted.length){const cutTP=sorted[Math.min(cutSize,sorted.length)-1].toPar;sorted.forEach(r=>{if(r.toPar<=cutTP)made.add(r.playerId);});}
   inst.cutPlayers=made;saveState();
 }
 
 function isRoundComplete(inst,roundIdx){
   const rd=inst.rounds[roundIdx];
   return inst.field.every(pid=>{
-    if(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound)return true;
+    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return true;
     return rd.scores[pid].every(v=>v!=null);
   });
 }
@@ -823,7 +854,7 @@ function finishTournamentIfDone(defId){
     } else { st.points+=pts; }
     st.earnings+=prize;st.events++;
     if(row.position===1)st.wins++;
-    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
+    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff,sg:sgSnapshotFor(inst,row.playerId)});
   });
   if(def.major&&finishers.length){
     if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
@@ -832,7 +863,7 @@ function finishTournamentIfDone(defId){
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     STATE.standings[row.playerId].events++;
-    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,sg:sgSnapshotFor(inst,row.playerId)});
   });
   updateWorldRanking(defId,lb);
   generateTournamentNews(defId,lb,inst);
@@ -840,9 +871,11 @@ function finishTournamentIfDone(defId){
   saveState();return true;
 }
 
-function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
+function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes,hs){
   const inst=getInstance(defId);if(!inst)return;
-  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
+  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;
+  if(hs)accumInstSG(inst,playerId,hs);
+  saveState();
 }
 
 function resolvePlayoffHoleIfComplete(defId){
@@ -917,6 +950,7 @@ function resolvePlayoffHoleIfComplete(defId){
       fieldRelToPar:row.toPar-fieldAvgToPar,
       fedex:!!def.playoff,
       playoffWin:isWinner,
+      sg:sgSnapshotFor(inst,row.playerId),
     });
   });
 
@@ -933,7 +967,7 @@ function resolvePlayoffHoleIfComplete(defId){
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     STATE.standings[row.playerId].events++;
-    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,sg:sgSnapshotFor(inst,row.playerId)});
   });
 
   updateWorldRanking(defId,lb);
@@ -945,6 +979,16 @@ function resolvePlayoffHoleIfComplete(defId){
 /* Fantasy removed — replaced by Ryder Cup system */
 
 /* ===== SIMULATE HOLE FOR ALL / SELECTED PLAYERS ===== */
+function sgSnapshotFor(inst,pid){
+  const s=inst&&inst.sg&&inst.sg[pid];if(!s)return null;
+  return{ott:+s.ott.toFixed(2),app:+s.app.toFixed(2),arg:+s.arg.toFixed(2),putt:+s.putt.toFixed(2),total:+s.total.toFixed(2),holes:s.holes||0};
+}
+function accumInstSG(inst,pid,hs){
+  if(!inst.sg)inst.sg={};
+  if(!inst.sg[pid])inst.sg[pid]={ott:0,app:0,arg:0,putt:0,total:0,holes:0};
+  const s=inst.sg[pid];const src=hs.sg||{};
+  s.ott+=src.ott||0;s.app+=src.app||0;s.arg+=src.arg||0;s.putt+=src.putt||0;s.total+=src.total||0;s.holes+=1;
+}
 function simulateHoleForPlayers(defId,roundIdx,holeIdx,playerIds){
   const inst=getInstance(defId);const def=getDef(defId);
   playerIds.forEach(pid=>{
@@ -952,6 +996,7 @@ function simulateHoleForPlayers(defId,roundIdx,holeIdx,playerIds){
     const p=getPlayer(pid);if(!p)return;
     const hs=simulateFullHole(def.holes[holeIdx],effectiveAttrs(p));
     inst.rounds[roundIdx].scores[pid][holeIdx]=hs.strokes;
+    accumInstSG(inst,pid,hs);
   });
   saveState();
 }
@@ -964,6 +1009,7 @@ function simulateRoundForPlayers(defId,roundIdx,playerIds){
       const p=getPlayer(pid);if(!p)return;
       const hs=simulateFullHole(def.holes[h],effectiveAttrs(p));
       inst.rounds[roundIdx].scores[pid][h]=hs.strokes;
+      accumInstSG(inst,pid,hs);
     });
   }
   saveState();
@@ -1033,10 +1079,33 @@ function rosterCardHTML(p){
   </div>`;
 }
 
+function sumSG(entries){
+  const t={ott:0,app:0,arg:0,putt:0,total:0,n:0};
+  (entries||[]).forEach(h=>{if(h&&h.sg){t.ott+=h.sg.ott||0;t.app+=h.sg.app||0;t.arg+=h.sg.arg||0;t.putt+=h.sg.putt||0;t.total+=h.sg.total||0;t.n++;}});
+  return t;
+}
+function sgRowHTML(label,t,perEvent){
+  const n=Math.max(t.n,1);
+  const val=perEvent?t.total/n:t.total;
+  const rows=[['OTT',perEvent?t.ott/n:t.ott],['APP',perEvent?t.app/n:t.app],['ARG',perEvent?t.arg/n:t.arg],['PUTT',perEvent?t.putt/n:t.putt]];
+  const clr=v=>v>0.05?'var(--turf-600)':v<-0.05?'var(--flag-red)':'var(--ink-500)';
+  const fmt=v=>`${v>0?'+':''}${v.toFixed(2)}`;
+  return`<div style="background:var(--sand-200);border-radius:4px;padding:10px 12px;">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+      <span style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;">${label}${t.n?` &middot; ${t.n} event${t.n===1?'':'s'}`:''}</span>
+      <span class="num" style="font-size:16px;color:${clr(val)};">${t.n?fmt(val):'—'}</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      ${rows.map(([l,v])=>`<div style="text-align:center;"><div style="font-size:9px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${l}</div><div class="num" style="font-size:12px;color:${clr(v)};">${t.n?fmt(v):'—'}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
 function openProfileModal(pid){
   const p=getPlayer(pid);if(!p)return;
   const st=STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0,history:[]};
   const career=p.career||{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};
+  const sgSeason=sumSG(st.history);
+  const sgCareer=sumSG([...(st.history||[]),...(career.history||[])]);
   const totalEarnings=(career.earnings||0)+(st.earnings||0);
   const totalWins=(career.wins||0)+(st.wins||0);
   const totalEvents=(career.events||0)+(st.events||0);
@@ -1079,6 +1148,13 @@ function openProfileModal(pid){
           ${[['Career Events',totalEvents],['Career Wins',totalWins],['Season Points',(st.points||0).toLocaleString()],['Top 10',hist.filter(h=>typeof h.pos==='number'&&h.pos<=10).length]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px;border-radius:4px;text-align:center;"><div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
         </div>
         <p style="font-size:11px;color:var(--ink-500);margin:4px 0 18px;">Career totals carry over every season. Season Points reset to zero at the start of each new season.</p>
+        <div style="margin-bottom:18px;">
+          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">📊 Strokes Gained &middot; per event average (Off-Tee / Approach / Around-Green / Putting)</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            ${sgRowHTML('This Season',sgSeason,true)}
+            ${sgRowHTML('Career',sgCareer,true)}
+          </div>
+        </div>
         ${(()=>{
           // Major best finishes
           const MAJOR_IDS=STATE.tournamentDefs.filter(d=>d.major).map(d=>d.id);
@@ -1157,12 +1233,14 @@ function openProfileModal(pid){
                 <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Pos</th>
                 <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Score</th>
                 <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Earnings</th>
+                <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;" title="Strokes Gained: Total (OTT/APP/ARG/PUTT)">SG</th>
               </tr></thead>
               <tbody>${hist.map((h,i)=>`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.5)':''};">
                 <td style="padding:6px 8px;font-size:12px;">${escapeHTML(h.trnName)}</td>
                 <td style="padding:6px 8px;text-align:center;" class="num">${h.pos==='MC'?`<span style="color:var(--ink-500);">MC</span>`:h.pos===1?`<span style="color:var(--board-amber);font-weight:700;">🏆 1</span>`:`<span style="${h.pos<=10?'color:var(--turf-700);':''}">T${h.pos}</span>`}</td>
                 <td style="padding:6px 8px;text-align:center;" class="num" style="color:${h.toPar<0?'var(--flag-red)':h.toPar>0?'var(--ink-700)':''};">${h.toPar===0?'E':h.toPar>0?'+'+h.toPar:h.toPar}</td>
                 <td style="padding:6px 8px;text-align:right;" class="num">${h.prize>0?`<span style="color:var(--turf-700);">${formatMoney(h.prize)}</span>`:'—'}</td>
+                <td style="padding:6px 8px;text-align:right;" class="num" style="color:${h.sg&&h.sg.total>0?'var(--turf-600)':h.sg&&h.sg.total<0?'var(--flag-red)':'var(--ink-500)'};" ${h.sg?`title="OTT ${h.sg.ott>0?'+':''}${h.sg.ott} · APP ${h.sg.app>0?'+':''}${h.sg.app} · ARG ${h.sg.arg>0?'+':''}${h.sg.arg} · PUTT ${h.sg.putt>0?'+':''}${h.sg.putt}"`:''}>${h.sg?`${h.sg.total>0?'+':''}${h.sg.total}`:'—'}</td>
               </tr>`).join('')}</tbody>
             </table>
           </div>
@@ -2230,7 +2308,7 @@ function renderTournament(){
     <div><span class="eyebrow">${def.major?'MAJOR · ':''}${def.teamEvent?'🏆 TEAM EVENT · ':''}${def.course} · ${def.location}</span><h2>${def.name}</h2></div>
     <div style="text-align:right;">
       <div class="eyebrow">${isComplete?'Final':`Round ${roundIdx+1} of ${inst.rounds.length}`}</div>
-      ${inst.cutPlayers?`<div style="font-size:11px;color:var(--ink-500);">${inst.cutPlayers.length} players made cut</div>`:''}
+      ${inst.cutPlayers?`<div style="font-size:11px;color:var(--ink-500);">${inst.cutPlayers.size} players made cut</div>`:''}
     </div>
   </div>
   <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
@@ -2314,7 +2392,7 @@ function renderCompletePanel(defId,lb){
 /* ===== PLAY PANEL ===== */
 function activePlayersForRound(inst,roundIdx){
   return inst.field.filter(pid=>{
-    if(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound)return false;
+    if(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound)return false;
     return inst.rounds[roundIdx].scores[pid].some(v=>v==null);
   });
 }
@@ -2330,7 +2408,7 @@ const TEE_GROUP_SIZE=4;
 function ensureTeeGroups(inst,def,defId,roundIdx){
   const rd=inst.rounds[roundIdx];
   if(rd.teeGroups&&rd.teeGroups.length)return rd.teeGroups;
-  const eligible=inst.field.filter(pid=>!(inst.cutPlayers&&!inst.cutPlayers.includes(pid)&&roundIdx>=inst.cutAppliedAfterRound));
+  const eligible=inst.field.filter(pid=>!(inst.cutPlayers&&!inst.cutPlayers.has(pid)&&roundIdx>=inst.cutAppliedAfterRound));
   const rankingBased=roundIdx>=2;
   let order;
   if(rankingBased){
@@ -2545,7 +2623,7 @@ function renderHoleControl(defId,roundIdx,pid){
     ${scorecardHTML(def,scoreSoFar,holeIdx)}
   </div>`;
   document.getElementById('hit-shot-btn')?.addEventListener('click',()=>{playShot(hs,effectiveAttrs(player));renderHoleControl(defId,roundIdx,pid);});
-  document.getElementById('confirm-hole-btn')?.addEventListener('click',()=>{recordHoleScore(defId,roundIdx,pid,holeIdx,hs.strokes);advanceAfterHole(defId,roundIdx,pid);});
+  document.getElementById('confirm-hole-btn')?.addEventListener('click',()=>{recordHoleScore(defId,roundIdx,pid,holeIdx,hs.strokes,hs);advanceAfterHole(defId,roundIdx,pid);});
 }
 
 function holeResultWord(strokes,par){const d=strokes-par;if(d<=-3)return'Albatross+';if(d===-2)return'Eagle';if(d===-1)return'Birdie';if(d===0)return'Par';if(d===1)return'Bogey';if(d===2)return'Double Bogey';return`+${d}`;}
