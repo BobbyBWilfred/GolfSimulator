@@ -178,51 +178,58 @@ function courseVariant(seedShift,yardBase){
   return makeHoles(arr,yardBase);
 }
 
+/* difficulty: a rough 0-10 "how hard does this course/setup play" rating used to scale
+   scoring realism (see applyDifficulty() in the sim engine). 0 = neutral tour-average
+   week. Negative = birdiefest / low-scoring course. Positive = tougher test.
+   The U.S. Open is intentionally the hardest week on the calendar (USGA-style setup,
+   thick rough, fast/firm greens) — winning around even par should now be a top-5-caliber
+   score instead of routinely seeing -20/-30. */
 const TOURNAMENT_SEEDS=[
   // ── Full season calendar, chronological, all stroke play ──
-  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0,date:"Jan 11"},
-  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:9.1,seed:2,yard:-10,date:"Jan 18"},
-  {name:"The American Express",course:"PGA West (Stadium Course)",loc:"La Quinta, CA",major:false,purse:9.2,seed:3,yard:-8,date:"Jan 25"},
-  {name:"Farmers Insurance Open",course:"Torrey Pines GC (South)",loc:"San Diego, CA",major:false,purse:9.6,seed:4,yard:6,date:"Feb 1"},
-  {name:"WM Phoenix Open",course:"TPC Scottsdale (Stadium)",loc:"Scottsdale, AZ",major:false,purse:9.6,seed:5,yard:-4,date:"Feb 8"},
-  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:6,yard:-5,date:"Feb 15"},
-  {name:"Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:7,yard:9,date:"Feb 22"},
-  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.6,seed:8,yard:-2,date:"Mar 1"},
-  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:9,yard:10,date:"Mar 8"},
-  {name:"The Players Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:10,yard:5,date:"Mar 15"},
-  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:9.1,seed:11,yard:3,date:"Mar 22"},
-  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.9,seed:12,yard:7,date:"Mar 29"},
-  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.8,seed:13,yard:5,date:"Apr 5"},
-  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:22.5,seed:14,yard:15,date:"Apr 12"},
-  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:15,yard:-20,date:"Apr 19"},
-  {name:"Zurich Classic of New Orleans",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:9.5,seed:16,yard:-3,date:"Apr 26"},
-  {name:"Cadillac Championship",course:"Trump National Doral (Blue Monster)",loc:"Doral, FL",major:false,purse:20,seed:17,yard:8,date:"May 3"},
-  {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:18,yard:2,date:"May 10"},
-  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17"},
-  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:10.3,seed:20,yard:4,date:"May 24"},
-  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.9,seed:21,yard:-15,date:"May 31"},
-  {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:22,yard:8,date:"Jun 7"},
-  {name:"RBC Canadian Open",course:"TPC Toronto at Osprey Valley",loc:"Caledon, ON",major:false,purse:9.8,seed:23,yard:-6,date:"Jun 14"},
-  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:22.5,seed:24,yard:18,date:"Jun 21"},
-  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:25,yard:-12,date:"Jun 29"},
-  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:8.8,seed:26,yard:-18,date:"Jul 5"},
-  {name:"Genesis Scottish Open",course:"The Renaissance Club",loc:"North Berwick, Scotland",major:false,purse:9.0,seed:27,yard:-9,date:"Jul 12"},
-  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:28,yard:0,date:"Jul 19"},
-  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.8,seed:29,yard:-5,date:"Jul 26"},
-  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:10.0,seed:30,yard:-1,date:"Aug 2"},
-  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.5,seed:31,yard:-10,date:"Aug 9"},
+  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0,date:"Jan 11",difficulty:1.15},
+  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:9.1,seed:2,yard:-10,date:"Jan 18",difficulty:1.75},
+  {name:"The American Express",course:"PGA West (Stadium Course)",loc:"La Quinta, CA",major:false,purse:9.2,seed:3,yard:-8,date:"Jan 25",difficulty:1.0},
+  {name:"Farmers Insurance Open",course:"Torrey Pines GC (South)",loc:"San Diego, CA",major:false,purse:9.6,seed:4,yard:6,date:"Feb 1",difficulty:1.75},
+  {name:"WM Phoenix Open",course:"TPC Scottsdale (Stadium)",loc:"Scottsdale, AZ",major:false,purse:9.6,seed:5,yard:-4,date:"Feb 8",difficulty:0.75},
+  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:6,yard:-5,date:"Feb 15",difficulty:0.75},
+  {name:"Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:7,yard:9,date:"Feb 22",difficulty:1.25},
+  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.6,seed:8,yard:-2,date:"Mar 1",difficulty:0.95},
+  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:9,yard:10,date:"Mar 8",difficulty:1},
+  {name:"The Players Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:10,yard:5,date:"Mar 15",difficulty:1.5},
+  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:9.1,seed:11,yard:3,date:"Mar 22",difficulty:0.5},
+  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.9,seed:12,yard:7,date:"Mar 29",difficulty:1.5},
+  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.8,seed:13,yard:5,date:"Apr 5",difficulty:0.75},
+  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:22.5,seed:14,yard:15,date:"Apr 12",difficulty:2.5},
+  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:15,yard:-20,date:"Apr 19",difficulty:1.5},
+  {name:"Zurich Classic of New Orleans",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:9.5,seed:16,yard:-3,date:"Apr 26",difficulty:1.5},
+  {name:"Cadillac Championship",course:"Trump National Doral (Blue Monster)",loc:"Doral, FL",major:false,purse:20,seed:17,yard:8,date:"May 3",difficulty:0.5},
+  {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:18,yard:2,date:"May 10",difficulty:0},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17",difficulty:2},
+  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:10.3,seed:20,yard:4,date:"May 24",difficulty:1.5},
+  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.9,seed:21,yard:-15,date:"May 31",difficulty:1},
+  {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:22,yard:8,date:"Jun 7",difficulty:1.5},
+  {name:"RBC Canadian Open",course:"TPC Toronto at Osprey Valley",loc:"Caledon, ON",major:false,purse:9.8,seed:23,yard:-6,date:"Jun 14",difficulty:0.5},
+  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:22.5,seed:24,yard:18,date:"Jun 21",difficulty:3},
+  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:25,yard:-12,date:"Jun 29",difficulty:1.5},
+  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:8.8,seed:26,yard:-18,date:"Jul 5",difficulty:0.5},
+  {name:"Genesis Scottish Open",course:"The Renaissance Club",loc:"North Berwick, Scotland",major:false,purse:9.0,seed:27,yard:-9,date:"Jul 12",difficulty:1},
+  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:28,yard:0,date:"Jul 19",difficulty:2.25},
+  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.8,seed:29,yard:-5,date:"Jul 26",difficulty:1.2},
+  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:10.0,seed:30,yard:-1,date:"Aug 2",difficulty:1.5},
+  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.5,seed:31,yard:-10,date:"Aug 9",difficulty:1.2},
   // ── FedExCup Playoffs (no cut) ──
-  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,date:"Aug 16"},
-  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,date:"Aug 23"},
-  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,date:"Aug 30"},
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,date:"Aug 16",difficulty:0.5},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,date:"Aug 23",difficulty:1},
+  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,date:"Aug 30",difficulty:0.5},
   // ── Ryder Cup — odd seasons only, immediately after the Tour Championship ──
-  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep"},
+  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep",difficulty:0},
 ];
 
 function buildTournamentDefs(){
   return TOURNAMENT_SEEDS.map((t,idx)=>({
     id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,date:t.date,
     major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
+    difficulty:typeof t.difficulty==='number'?t.difficulty:0,
     holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
   }));
 }
@@ -618,43 +625,9 @@ function showToast(msg,bad){
 /* ===== SIMULATION ENGINE ===== */
 function newHoleState(holeDef){
   return{hole:holeDef.hole,par:holeDef.par,totalYards:holeDef.yards,remaining:holeDef.yards,
-    lie:'tee',strokes:0,holedOut:false,log:[],puttDistanceFt:null,eagles:0,birdies:0,bogeys:0,doubles:0,
-    sg:{ott:0,app:0,arg:0,putt:0,total:0}};
+    lie:'tee',strokes:0,holedOut:false,log:[],puttDistanceFt:null,eagles:0,birdies:0,bogeys:0,doubles:0};
 }
 function skillFactor(skill){return 0.55+(skill/99)*0.9;}
-
-/* ===== STROKES GAINED ENGINE =====
-   Lightweight approximation of PGA Tour-style Strokes Gained. Every shot
-   is bucketed the same way the game already buckets shots (chooseShotType)
-   into: Off-The-Tee (ott), Approach (app), Around-the-Green (arg), Putting
-   (putt). For each shot we estimate "expected strokes to finish the hole
-   from here" both before and after the shot using simple baseline curves,
-   and SG for that shot = expectedBefore - expectedAfter - 1. Summed across
-   a round/event/season this reproduces the shape of real SG stats. */
-const SG_CATEGORY={tee_long:'ott',approach:'app',long_approach:'app',chip:'arg',bunker:'arg',putt:'putt'};
-function lerpTable(table,x){
-  if(x<=table[0][0])return table[0][1];
-  for(let i=0;i<table.length-1;i++){
-    const x0=table[i][0],y0=table[i][1],x1=table[i+1][0],y1=table[i+1][1];
-    if(x<=x1)return y0+(y1-y0)*((x-x0)/(x1-x0));
-  }
-  return table[table.length-1][1];
-}
-const SG_TEE_TABLE=[[100,2.9],[150,3.1],[200,3.5],[250,3.8],[300,4.0],[350,4.15],[400,4.3],[450,4.45],[500,4.55],[550,4.65],[600,4.75]];
-const SG_APP_TABLE=[[20,2.4],[40,2.6],[60,2.75],[80,2.85],[100,2.9],[125,3.05],[150,3.2],[175,3.35],[200,3.5],[225,3.65],[250,3.8]];
-const SG_ARG_TABLE=[[0,1.0],[3,1.6],[6,1.9],[10,2.1],[15,2.25],[20,2.35],[30,2.5]];
-const SG_PUTT_TABLE=[[1,1.001],[2,1.02],[3,1.04],[4,1.14],[5,1.2],[6,1.25],[8,1.35],[10,1.45],[15,1.65],[20,1.8],[25,1.9],[30,1.98],[40,2.15],[50,2.25],[60,2.35]];
-function sgExpectedToFinish(hs){
-  if(hs.holedOut)return 0;
-  if(hs.lie==='green')return lerpTable(SG_PUTT_TABLE,hs.puttDistanceFt||3);
-  if(hs.remaining>230)return lerpTable(SG_TEE_TABLE,hs.remaining);
-  const base=hs.remaining<=30?lerpTable(SG_ARG_TABLE,hs.remaining):lerpTable(SG_APP_TABLE,hs.remaining);
-  const lieMult=hs.lie==='rough'?1.06:hs.lie==='sand'?1.12:hs.lie==='recovery'?1.22:1.0;
-  return base*lieMult;
-}
-function emptySG(){return{ott:0,app:0,arg:0,putt:0,total:0};}
-function addSG(target,src){if(!src)return target;target.ott+=src.ott||0;target.app+=src.app||0;target.arg+=src.arg||0;target.putt+=src.putt||0;target.total+=src.total||0;return target;}
-function roundSGVals(sg){return{ott:+sg.ott.toFixed(2),app:+sg.app.toFixed(2),arg:+sg.arg.toFixed(2),putt:+sg.putt.toFixed(2),total:+sg.total.toFixed(2)};}
 function chooseShotType(hs){
   if(hs.lie==='green')return 'putt';
   if(hs.lie==='sand')return hs.remaining<=40?'bunker':'approach';
@@ -664,51 +637,59 @@ function chooseShotType(hs){
   return 'putt';
 }
 
-function resolveFullSwing(hs,attrs,shotType){
+/* difficulty is a ~ -3 (birdiefest) .. +6 (U.S. Open-hard) rating applied on top of
+   player skill so that course setup — not just attributes — governs realistic scoring.
+   Higher difficulty = smaller fairways/greens to work with, thicker rough, faster/firmer
+   greens that are harder to convert putts on and easier to run putts past the hole. */
+function resolveFullSwing(hs,attrs,shotType,difficulty){
+  difficulty=difficulty||0;
   const{power,accuracy,irons,clutch}=attrs;let res={};
   if(shotType==='tee_long'){
     const distPotential=250+(power/99)*100;const distActual=clamp(gaussian(distPotential,14),190,380);
-    const accRoll=Math.random()*100;const missThreshold=30+(accuracy/99)*55;
+    const accRoll=Math.random()*100;const missThreshold=clamp(30+(accuracy/99)*55-difficulty*4,10,85);
     let newLie='fairway';
     if(accRoll>missThreshold+15)newLie='rough';if(accRoll>missThreshold+38)newLie='recovery';
     hs.remaining=clamp(hs.remaining-distActual,0,9999);hs.lie=hs.remaining<=0?'green':newLie;
     res.text=`Drive ${Math.round(distActual)}y — ${newLie==='fairway'?'finds the fairway':newLie==='rough'?'drifts into the rough':'leaks into trouble'}.`;
   } else {
-    const lieMult=hs.lie==='fairway'?1.0:hs.lie==='rough'?0.85:hs.lie==='recovery'?0.6:0.9;
-    const skillP=(irons/99)*lieMult;
+    const lieMult=(hs.lie==='fairway'?1.0:hs.lie==='rough'?0.85:hs.lie==='recovery'?0.6:0.9)*(1-difficulty*0.03);
+    const skillP=clamp((irons/99)*lieMult,0.15,1.2);
     const distPotential=hs.remaining*(0.93+skillP*0.1);
     const distActual=clamp(gaussian(distPotential,18+(1-skillP)*22),hs.remaining*0.55,hs.remaining*1.08);
     const leftover=clamp(hs.remaining-distActual,0,9999);hs.remaining=leftover;
-    const qualityRoll=Math.random()*100+(irons-50)*0.5+(clutch-50)*0.15;
+    const qualityRoll=Math.random()*100+(irons-50)*0.5+(clutch-50)*0.15-difficulty*8;
     let newLie;
     if(leftover<=0)newLie='green';
     else if(qualityRoll>70)newLie='fairway';else if(qualityRoll>40)newLie='rough';
     else if(qualityRoll>25)newLie='sand';else newLie='recovery';
     hs.lie=newLie;
     if(leftover<=0){
-      const closeness=clamp(gaussian(28-skillP*20,12),2,90);hs.puttDistanceFt=Math.round(closeness);hs.lie='green';
+      const closeness=clamp(gaussian(28-skillP*20+difficulty*3.5,12),2,95);hs.puttDistanceFt=Math.round(closeness);hs.lie='green';
       res.text=`Approach finds the green, ${hs.puttDistanceFt} ft from the pin.`;
     }else res.text=`Shot covers ${Math.round(distActual)}y, ${Math.round(leftover)}y remaining, into the ${newLie}.`;
   }
   return res;
 }
 
-function resolveChip(hs,attrs){
+function resolveChip(hs,attrs,difficulty){
+  difficulty=difficulty||0;
   const skillP=attrs.short/99;const dist=hs.remaining;
-  const closenessBase=clamp(14-skillP*10,1.5,16);const closeness=clamp(gaussian(closenessBase+dist*0.04,6),0.5,45);
-  const chipInChance=dist<25?(0.05+skillP*0.12):0.01;
+  const closenessBase=clamp(14-skillP*10+difficulty*2,1.5,26);const closeness=clamp(gaussian(closenessBase+dist*0.04,6),0.5,50);
+  const chipInChance=clamp((dist<25?(0.05+skillP*0.12):0.01)-difficulty*0.008,0.002,0.2);
   if(Math.random()<chipInChance){hs.holedOut=true;hs.lie='hole';return{text:'Chips it in! 🎯',holed:true};}
   hs.remaining=0;hs.lie='green';hs.puttDistanceFt=Math.round(closeness);
   return{text:`Chips on, ${hs.puttDistanceFt} ft for the putt.`};
 }
 
-function resolveBunker(hs,attrs){
-  const skillP=attrs.short/99;const closeness=clamp(gaussian(16-skillP*10,7),1,40);
-  if(Math.random()<0.04+(1-skillP)*0.05){hs.remaining=clamp(hs.remaining*0.4,5,60);return{text:'Leaves it in the sand — still in the bunker.'};}
+function resolveBunker(hs,attrs,difficulty){
+  difficulty=difficulty||0;
+  const skillP=attrs.short/99;const closeness=clamp(gaussian(16-skillP*10+difficulty*2,7),1,45);
+  if(Math.random()<clamp(0.04+(1-skillP)*0.05+difficulty*0.015,0.02,0.22)){hs.remaining=clamp(hs.remaining*0.4,5,60);return{text:'Leaves it in the sand — still in the bunker.'};}
   hs.remaining=0;hs.lie='green';hs.puttDistanceFt=Math.round(closeness);return{text:`Splashes out to ${hs.puttDistanceFt} ft.`};
 }
 
-function resolvePutt(hs,attrs){
+function resolvePutt(hs,attrs,difficulty){
+  difficulty=difficulty||0;
   const skillP=attrs.putting/99;const clutchP=attrs.clutch/99;const distFt=hs.puttDistanceFt;
   let makeChance;
   if(distFt<=2)makeChance=0.93+skillP*0.06;
@@ -717,40 +698,35 @@ function resolvePutt(hs,attrs){
   else if(distFt<=20)makeChance=0.08+skillP*0.27;
   else if(distFt<=35)makeChance=0.02+skillP*0.12;
   else makeChance=0.01+skillP*0.05;
-  makeChance+=((clutchP-0.5)*0.05);makeChance=clamp(makeChance,0.01,0.97);
+  makeChance+=((clutchP-0.5)*0.05)-difficulty*0.028;makeChance=clamp(makeChance,0.01,0.97);
   if(Math.random()<makeChance){
     hs.holedOut=true;hs.lie='hole';
     const flavor=distFt>20?'Bomb from distance — in the cup!':distFt>8?'Rolls in!':'Good putt, in the heart.';
     return{text:flavor,holed:true};
   }
-  const leaveBase=distFt>20?distFt*0.22:distFt>8?distFt*0.28:distFt*0.35;
-  const leave=clamp(gaussian(leaveBase,leaveBase*0.4+0.5),0.3,distFt*0.9);
+  const leaveBase=(distFt>20?distFt*0.22:distFt>8?distFt*0.28:distFt*0.35)*(1+difficulty*0.09);
+  const leave=clamp(gaussian(leaveBase,leaveBase*0.4+0.5),0.3,distFt*0.95);
   hs.puttDistanceFt=Math.round(leave*10)/10;
   return{text:`Just slides by, ${hs.puttDistanceFt} ft left.`};
 }
 
-function playShot(hs,attrs){
-  const sgBefore=sgExpectedToFinish(hs);
+function playShot(hs,attrs,difficulty){
+  difficulty=difficulty||0;
   hs.strokes+=1;const shotType=chooseShotType(hs);let res;
-  if(shotType==='tee_long')res=resolveFullSwing(hs,attrs,'tee_long');
-  else if(shotType==='approach'||shotType==='long_approach')res=resolveFullSwing(hs,attrs,shotType);
-  else if(shotType==='chip')res=resolveChip(hs,attrs);
-  else if(shotType==='bunker')res=resolveBunker(hs,attrs);
-  else res=resolvePutt(hs,attrs);
-  const sgAfter=hs.holedOut?0:sgExpectedToFinish(hs);
-  const sgVal=sgBefore-sgAfter-1;
-  const cat=SG_CATEGORY[shotType]||'app';
-  if(!hs.sg)hs.sg={ott:0,app:0,arg:0,putt:0,total:0};
-  hs.sg[cat]+=sgVal;hs.sg.total+=sgVal;
-  res.shotType=shotType;res.strokeNum=hs.strokes;res.sg=sgVal;hs.log.push(res.text);
+  if(shotType==='tee_long')res=resolveFullSwing(hs,attrs,'tee_long',difficulty);
+  else if(shotType==='approach'||shotType==='long_approach')res=resolveFullSwing(hs,attrs,shotType,difficulty);
+  else if(shotType==='chip')res=resolveChip(hs,attrs,difficulty);
+  else if(shotType==='bunker')res=resolveBunker(hs,attrs,difficulty);
+  else res=resolvePutt(hs,attrs,difficulty);
+  res.shotType=shotType;res.strokeNum=hs.strokes;hs.log.push(res.text);
   if(hs.strokes>=12&&!hs.holedOut){hs.holedOut=true;hs.forcedPickup=true;res.text+=' Picks up — max score.';}
   return res;
 }
 
 // Play a complete hole automatically for a player (used in batch/simulate-all mode)
-function simulateFullHole(holeDef,attrs){
+function simulateFullHole(holeDef,attrs,difficulty){
   const hs=newHoleState(holeDef);
-  while(!hs.holedOut)playShot(hs,attrs);
+  while(!hs.holedOut)playShot(hs,attrs,difficulty);
   return hs;
 }
 
@@ -764,7 +740,6 @@ function startTournament(defId,fieldPlayerIds){
     inst.rounds.push({roundNum:r,scores,complete:false});
   }
   inst.cutAppliedAfterRound=def.rounds===4?2:null;inst.cutPlayers=null;
-  inst.sg={};fieldPlayerIds.forEach(pid=>{inst.sg[pid]={ott:0,app:0,arg:0,putt:0,total:0,holes:0};});
   STATE.activeTournamentId=defId;saveState();
 }
 
@@ -854,7 +829,7 @@ function finishTournamentIfDone(defId){
     } else { st.points+=pts; }
     st.earnings+=prize;st.events++;
     if(row.position===1)st.wins++;
-    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff,sg:sgSnapshotFor(inst,row.playerId)});
+    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
   });
   if(def.major&&finishers.length){
     if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
@@ -863,7 +838,7 @@ function finishTournamentIfDone(defId){
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     STATE.standings[row.playerId].events++;
-    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,sg:sgSnapshotFor(inst,row.playerId)});
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
   });
   updateWorldRanking(defId,lb);
   generateTournamentNews(defId,lb,inst);
@@ -871,11 +846,9 @@ function finishTournamentIfDone(defId){
   saveState();return true;
 }
 
-function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes,hs){
+function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
   const inst=getInstance(defId);if(!inst)return;
-  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;
-  if(hs)accumInstSG(inst,playerId,hs);
-  saveState();
+  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
 }
 
 function resolvePlayoffHoleIfComplete(defId){
@@ -950,7 +923,6 @@ function resolvePlayoffHoleIfComplete(defId){
       fieldRelToPar:row.toPar-fieldAvgToPar,
       fedex:!!def.playoff,
       playoffWin:isWinner,
-      sg:sgSnapshotFor(inst,row.playerId),
     });
   });
 
@@ -967,7 +939,7 @@ function resolvePlayoffHoleIfComplete(defId){
   lb.filter(r=>r.cut).forEach(row=>{
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     STATE.standings[row.playerId].events++;
-    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,sg:sgSnapshotFor(inst,row.playerId)});
+    STATE.standings[row.playerId].history.push({trnId:def.id,trnName:def.name,pos:'MC',pts:0,prize:0,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar});
   });
 
   updateWorldRanking(defId,lb);
@@ -979,24 +951,13 @@ function resolvePlayoffHoleIfComplete(defId){
 /* Fantasy removed — replaced by Ryder Cup system */
 
 /* ===== SIMULATE HOLE FOR ALL / SELECTED PLAYERS ===== */
-function sgSnapshotFor(inst,pid){
-  const s=inst&&inst.sg&&inst.sg[pid];if(!s)return null;
-  return{ott:+s.ott.toFixed(2),app:+s.app.toFixed(2),arg:+s.arg.toFixed(2),putt:+s.putt.toFixed(2),total:+s.total.toFixed(2),holes:s.holes||0};
-}
-function accumInstSG(inst,pid,hs){
-  if(!inst.sg)inst.sg={};
-  if(!inst.sg[pid])inst.sg[pid]={ott:0,app:0,arg:0,putt:0,total:0,holes:0};
-  const s=inst.sg[pid];const src=hs.sg||{};
-  s.ott+=src.ott||0;s.app+=src.app||0;s.arg+=src.arg||0;s.putt+=src.putt||0;s.total+=src.total||0;s.holes+=1;
-}
 function simulateHoleForPlayers(defId,roundIdx,holeIdx,playerIds){
   const inst=getInstance(defId);const def=getDef(defId);
   playerIds.forEach(pid=>{
     if(inst.rounds[roundIdx].scores[pid][holeIdx]!=null)return; // already played
     const p=getPlayer(pid);if(!p)return;
-    const hs=simulateFullHole(def.holes[holeIdx],effectiveAttrs(p));
+    const hs=simulateFullHole(def.holes[holeIdx],effectiveAttrs(p),def.difficulty);
     inst.rounds[roundIdx].scores[pid][holeIdx]=hs.strokes;
-    accumInstSG(inst,pid,hs);
   });
   saveState();
 }
@@ -1007,9 +968,8 @@ function simulateRoundForPlayers(defId,roundIdx,playerIds){
     playerIds.forEach(pid=>{
       if(inst.rounds[roundIdx].scores[pid][h]!=null)return;
       const p=getPlayer(pid);if(!p)return;
-      const hs=simulateFullHole(def.holes[h],effectiveAttrs(p));
+      const hs=simulateFullHole(def.holes[h],effectiveAttrs(p),def.difficulty);
       inst.rounds[roundIdx].scores[pid][h]=hs.strokes;
-      accumInstSG(inst,pid,hs);
     });
   }
   saveState();
@@ -1079,44 +1039,22 @@ function rosterCardHTML(p){
   </div>`;
 }
 
-function sumSG(entries){
-  const t={ott:0,app:0,arg:0,putt:0,total:0,n:0};
-  (entries||[]).forEach(h=>{if(h&&h.sg){t.ott+=h.sg.ott||0;t.app+=h.sg.app||0;t.arg+=h.sg.arg||0;t.putt+=h.sg.putt||0;t.total+=h.sg.total||0;t.n++;}});
-  return t;
-}
-function sgRowHTML(label,t,perEvent){
-  const n=Math.max(t.n,1);
-  const val=perEvent?t.total/n:t.total;
-  const rows=[['OTT',perEvent?t.ott/n:t.ott],['APP',perEvent?t.app/n:t.app],['ARG',perEvent?t.arg/n:t.arg],['PUTT',perEvent?t.putt/n:t.putt]];
-  const clr=v=>v>0.05?'var(--turf-600)':v<-0.05?'var(--flag-red)':'var(--ink-500)';
-  const fmt=v=>`${v>0?'+':''}${v.toFixed(2)}`;
-  return`<div style="background:var(--sand-200);border-radius:4px;padding:10px 12px;">
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
-      <span style="font-size:10px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;">${label}${t.n?` &middot; ${t.n} event${t.n===1?'':'s'}`:''}</span>
-      <span class="num" style="font-size:16px;color:${clr(val)};">${t.n?fmt(val):'—'}</span>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-      ${rows.map(([l,v])=>`<div style="text-align:center;"><div style="font-size:9px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">${l}</div><div class="num" style="font-size:12px;color:${clr(v)};">${t.n?fmt(v):'—'}</div></div>`).join('')}
-    </div>
-  </div>`;
-}
 function openProfileModal(pid){
   const p=getPlayer(pid);if(!p)return;
   const st=STATE.standings[p.id]||{points:0,earnings:0,wins:0,events:0,history:[]};
-  const career=p.career||{points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};
-  const sgSeason=sumSG(st.history);
-  const sgCareer=sumSG([...(st.history||[]),...(career.history||[])]);
+  const career=p.career||{points:0,earnings:0,wins:0,events:0,seasons:0,winsList:[],majorBests:{},topTens:0};
   const totalEarnings=(career.earnings||0)+(st.earnings||0);
   const totalWins=(career.wins||0)+(st.wins||0);
   const totalEvents=(career.events||0)+(st.events||0);
   const totalPoints=(career.points||0)+(st.points||0); // lifetime points across seasons, separate from this season's race
-  const hist=(st.history||[]).slice().reverse();
-  const careerHist=(career.history||[]).slice().reverse();
+  const hist=(st.history||[]).slice().reverse(); // current season only — cleared once "Start Next Season" is clicked
   const maxEarnings=Math.max(...(st.history||[]).filter(h=>h.prize>0).map(h=>h.prize),1);
   const formScore=playerFormScore(p.id);const form=formLabel(formScore);
   const effAttrs=effectiveAttrs(p);const effOv=overallOf(effAttrs);
   const wrRank=playerWorldRank(p.id);
   const wrData=STATE.worldRanking[p.id]||{pts:0,history:[]};
+  const seasonTopTens=hist.filter(h=>typeof h.pos==='number'&&h.pos<=10).length;
+  const totalTopTens=(career.topTens||0)+seasonTopTens;
   const root=document.getElementById('modal-root');
   root.innerHTML=`<div class="modal-overlay" id="profile-overlay">
     <div class="modal" style="max-width:600px;">
@@ -1145,29 +1083,22 @@ function openProfileModal(pid){
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px;">
-          ${[['Career Events',totalEvents],['Career Wins',totalWins],['Season Points',(st.points||0).toLocaleString()],['Top 10',hist.filter(h=>typeof h.pos==='number'&&h.pos<=10).length]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px;border-radius:4px;text-align:center;"><div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
+          ${[['Career Events',totalEvents],['Career Wins',totalWins],['Season Points',(st.points||0).toLocaleString()],['Top 10',totalTopTens]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px;border-radius:4px;text-align:center;"><div style="font-size:10px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
         </div>
-        <p style="font-size:11px;color:var(--ink-500);margin:4px 0 18px;">Career totals carry over every season. Season Points reset to zero at the start of each new season.</p>
-        <div style="margin-bottom:18px;">
-          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">📊 Strokes Gained &middot; per event average (Off-Tee / Approach / Around-Green / Putting)</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            ${sgRowHTML('This Season',sgSeason,true)}
-            ${sgRowHTML('Career',sgCareer,true)}
-          </div>
-        </div>
+        <p style="font-size:11px;color:var(--ink-500);margin:4px 0 18px;">Career totals (wins, majors, top 10s, earnings) carry over every season forever. Season Points and the event-by-event log below reset at the start of each new season — only the permanent totals, major titles, and best major finishes survive the rollover.</p>
         ${(()=>{
-          // Major best finishes
+          // Major best finishes: permanent career.majorBests, topped up with any not-yet-folded
+          // results from the CURRENT in-progress season (st.history) so the board is always live.
           const MAJOR_IDS=STATE.tournamentDefs.filter(d=>d.major).map(d=>d.id);
           const MAJOR_NAMES={};STATE.tournamentDefs.filter(d=>d.major).forEach(d=>MAJOR_NAMES[d.id]=d.name);
-          const allHistory=[...(st.history||[]),...(career.history||[])];
-          const majorBests={};
-          allHistory.forEach(h=>{
+          const majorBests={...(career.majorBests||{})};
+          (st.history||[]).forEach(h=>{
             if(!MAJOR_IDS.includes(h.trnId))return;
             if(h.pos==='MC')return;
             if(!majorBests[h.trnId]||h.pos<majorBests[h.trnId].pos)majorBests[h.trnId]=h;
           });
           const hasMajorResults=Object.keys(majorBests).length>0;
-          const majorTally=allHistory.filter(h=>MAJOR_IDS.includes(h.trnId)&&h.pos===1).length;
+          const majorTally=Object.values(majorBests).filter(h=>h.pos===1).length;
           return`<div style="margin-bottom:18px;">
             <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">⛳ Major Championships</div>
             ${!hasMajorResults?`<div style="font-size:12px;color:var(--ink-500);font-style:italic;">No major starts yet.</div>`:`
@@ -1196,8 +1127,9 @@ function openProfileModal(pid){
           </div>`;
         })()}
         ${(()=>{
-          // All wins across current season + career history
-          const allWins=[...(st.history||[]),...(career.history||[])].filter(h=>h.pos===1);
+          // Tournament wins: permanent career.winsList, topped up with the current
+          // in-progress season's wins (folded into career.winsList once the season ends).
+          const allWins=[...(career.winsList||[]),...(st.history||[]).filter(h=>h.pos===1)];
           const fedexPts=(STATE.fedexStandings[p.id]||{}).points||0;
           const cap=p.salaryCap?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(63,122,77,0.12);color:var(--turf-700);margin-left:8px;">CAP ${formatMoney(p.salaryCap)}</span>`:'';
           if(!allWins.length&&!fedexPts)return'';
@@ -1233,36 +1165,16 @@ function openProfileModal(pid){
                 <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Pos</th>
                 <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Score</th>
                 <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Earnings</th>
-                <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;" title="Strokes Gained: Total (OTT/APP/ARG/PUTT)">SG</th>
               </tr></thead>
               <tbody>${hist.map((h,i)=>`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.5)':''};">
                 <td style="padding:6px 8px;font-size:12px;">${escapeHTML(h.trnName)}</td>
                 <td style="padding:6px 8px;text-align:center;" class="num">${h.pos==='MC'?`<span style="color:var(--ink-500);">MC</span>`:h.pos===1?`<span style="color:var(--board-amber);font-weight:700;">🏆 1</span>`:`<span style="${h.pos<=10?'color:var(--turf-700);':''}">T${h.pos}</span>`}</td>
                 <td style="padding:6px 8px;text-align:center;" class="num" style="color:${h.toPar<0?'var(--flag-red)':h.toPar>0?'var(--ink-700)':''};">${h.toPar===0?'E':h.toPar>0?'+'+h.toPar:h.toPar}</td>
                 <td style="padding:6px 8px;text-align:right;" class="num">${h.prize>0?`<span style="color:var(--turf-700);">${formatMoney(h.prize)}</span>`:'—'}</td>
-                <td style="padding:6px 8px;text-align:right;" class="num" style="color:${h.sg&&h.sg.total>0?'var(--turf-600)':h.sg&&h.sg.total<0?'var(--flag-red)':'var(--ink-500)'};" ${h.sg?`title="OTT ${h.sg.ott>0?'+':''}${h.sg.ott} · APP ${h.sg.app>0?'+':''}${h.sg.app} · ARG ${h.sg.arg>0?'+':''}${h.sg.arg} · PUTT ${h.sg.putt>0?'+':''}${h.sg.putt}"`:''}>${h.sg?`${h.sg.total>0?'+':''}${h.sg.total}`:'—'}</td>
               </tr>`).join('')}</tbody>
             </table>
           </div>
-        </div>`:careerHist.length?`<div>
-          <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;">Career History (prior seasons)</div>
-          <div style="max-height:220px;overflow-y:auto;" class="scrollbar-thin">
-            <table style="width:100%;border-collapse:collapse;font-size:12px;">
-              <thead><tr style="background:var(--turf-900);color:var(--paper-50);">
-                <th style="padding:6px 8px;text-align:left;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Tournament</th>
-                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Season</th>
-                <th style="padding:6px 8px;text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Pos</th>
-                <th style="padding:6px 8px;text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:10px;text-transform:uppercase;">Earnings</th>
-              </tr></thead>
-              <tbody>${careerHist.slice(0,30).map((h,i)=>`<tr style="border-bottom:1px solid var(--line);${i%2===0?'background:rgba(255,255,255,0.5)':''};">
-                <td style="padding:6px 8px;font-size:12px;">${escapeHTML(h.trnName)}</td>
-                <td style="padding:6px 8px;text-align:center;" class="num" style="color:var(--ink-500);">S${h.season||1}</td>
-                <td style="padding:6px 8px;text-align:center;" class="num">${h.pos==='MC'?`<span style="color:var(--ink-500);">MC</span>`:h.pos===1?`<span style="color:var(--board-amber);font-weight:700;">🏆 1</span>`:`<span style="${h.pos<=10?'color:var(--turf-700);':''}">T${h.pos}</span>`}</td>
-                <td style="padding:6px 8px;text-align:right;" class="num">${h.prize>0?`<span style="color:var(--turf-700);">${formatMoney(h.prize)}</span>`:'—'}</td>
-              </tr>`).join('')}</tbody>
-            </table>
-          </div>
-        </div>`:''}
+        </div>`:`<div style="font-size:12px;color:var(--ink-500);font-style:italic;">No events played yet this season. Past seasons' event-by-event results aren't kept — but career wins, major titles, and best major finishes above are permanent.</div>`}
         <div class="modal-actions"><button class="btn ghost" id="profile-close">Close</button><button class="btn ghost" data-edit-player="${p.id}" id="profile-edit">Edit Ratings</button></div>
       </div>
     </div>
@@ -1334,23 +1246,45 @@ function isSeasonComplete(){
 }
 
 // Folds this season's standings into each player's permanent career record
-// before the season standings get wiped, so wins/points/earnings/history
-// are never lost going into the next season.
+// before the season standings get wiped. Rather than keeping every single
+// event finish forever (which is what was bloating the database), we only
+// keep what's actually needed permanently:
+//   - running totals (points/earnings/wins/events/seasons)
+//   - winsList: a compact record of every tour/major win (name, season, score, prize)
+//   - majorBests: best-ever finish at each major
+//   - topTens: lifetime count of top-10 finishes
+// Everything else (each event's exact position/score for non-notable results) is
+// dropped once the season ends — it's still visible in-app for the CURRENT
+// season via st.history right up until "Start Next Season" is clicked.
 function foldStandingsIntoCareer(){
+  const majorIds=new Set(STATE.tournamentDefs.filter(d=>d.major).map(d=>d.id));
   STATE.players.forEach(p=>{
     const st=STATE.standings[p.id];if(!st)return;
-    if(!p.career)p.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};
+    if(!p.career)p.career={points:0,earnings:0,wins:0,events:0,seasons:0,winsList:[],majorBests:{},topTens:0};
+    if(!p.career.winsList)p.career.winsList=[];
+    if(!p.career.majorBests)p.career.majorBests={};
+    if(typeof p.career.topTens!=='number')p.career.topTens=0;
     p.career.points+=st.points||0;p.career.earnings+=st.earnings||0;
     p.career.wins+=st.wins||0;p.career.events+=st.events||0;p.career.seasons+=1;
-    p.career.history=(p.career.history||[]).concat(st.history||[]);
+    (st.history||[]).forEach(h=>{
+      if(h.pos===1){
+        p.career.winsList.push({trnId:h.trnId,trnName:h.trnName,season:h.season,toPar:h.toPar,strokes:h.strokes,prize:h.prize,major:majorIds.has(h.trnId)});
+      }
+      if(typeof h.pos==='number'&&h.pos<=10)p.career.topTens+=1;
+      if(majorIds.has(h.trnId)&&h.pos!=='MC'){
+        const cur=p.career.majorBests[h.trnId];
+        if(!cur||h.pos<cur.pos)p.career.majorBests[h.trnId]={pos:h.pos,toPar:h.toPar,season:h.season,trnName:h.trnName};
+      }
+    });
+    // this season's points become the baseline "last season" comparison for
+    // next year's Most Improved award (see computeSeasonAwards)
+    p.career.lastSeasonPoints=st.points||0;
   });
 }
 
 // Destructive full reset: wipes roster, career totals, everything. Used when
 // the person explicitly wants to start over from scratch.
 function restartSeason(){
-  const hasProgress=STATE.schedule.some(s=>s.status!=='scheduled')||Object.keys(STATE.standings).length>0;
-  if(hasProgress)STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,archivedAt:Date.now()});
   STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
   STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};STATE.news=[];STATE.awards=[];STATE.rydercup=null;STATE.worldRanking={};STATE.rydercupHistory=[];
   saveState();
@@ -1616,37 +1550,43 @@ function computeSeasonAwards(){
     .sort((a,b)=>b.pts-a.pts);
   const fedexWinner=fedexSorted[0]?.pts>0?fedexSorted[0].p:null;
 
-  // Most Improved: compare this season points to PREVIOUS season points
-  // Previous season points live in STATE.history (the last archive entry for this player)
+  // Most Improved: compare this season's points to last season's points, which we
+  // keep as a tiny per-player field (p.career.lastSeasonPoints) instead of keeping
+  // the entire previous season's standings blob around just for this comparison.
+  const hasPriorSeason=STATE.players.some(p=>p.career&&p.career.seasons>0);
   let mostImproved=null,bestDelta=-Infinity;
-  if(STATE.history.length>=1){
-    const prevArchive=STATE.history[STATE.history.length-1]; // most recent archived season
+  if(hasPriorSeason){
     STATE.players.forEach(p=>{
-      const curPts=(STATE.standings[p.id]||{}).points||0;
-      const prevPts=(prevArchive.standings?.[p.id]?.points)||0;
-      // Only consider players who actually played this season
-      if((STATE.standings[p.id]||{}).events<1)return;
+      const stp=STATE.standings[p.id]||{};
+      if((stp.events||0)<1)return; // only consider players who actually played this season
+      if(!p.career||!p.career.seasons)return; // needs a prior season to compare against
+      const curPts=stp.points||0;
+      const prevPts=p.career.lastSeasonPoints||0;
       const delta=curPts-prevPts;
       if(delta>bestDelta){bestDelta=delta;mostImproved=p;}
     });
     if(bestDelta<=0)mostImproved=null; // no one genuinely improved
   }
-  // Season 1 → no Most Improved (no prior season to compare)
 
   // World Ranking #1 at season end
   const wrRows=getWorldRankings();
   const wrNo1=wrRows.length&&wrRows[0].pts>0?wrRows[0].player:null;
 
-  const award={season,playerOfYear:poy?.id||null,fedexWinner:fedexWinner?.id||null,mostImproved:mostImproved?.id||null,mostImprovedDelta:bestDelta>0?bestDelta:0,worldNo1:wrNo1?.id||null};
+  const award={season,playerOfYear:poy?.id||null,fedexWinner:fedexWinner?.id||null,mostImproved:mostImproved?.id||null,mostImprovedDelta:bestDelta>0?bestDelta:0,worldNo1:wrNo1?.id||null,
+    // stash the point totals directly on the award so the honours board never needs
+    // to dig back through a season-history archive to display them.
+    poyPoints:poy?(STATE.standings[poy.id]||{}).points||0:0,
+    fedexPoints:fedexWinner?(STATE.fedexStandings[fedexWinner.id]||{}).points||0:0,
+    wrPoints:wrNo1?(STATE.worldRanking[wrNo1.id]||{}).pts||0:0};
   STATE.awards.push(award);
 
   // Generate a news story for the awards
   const lines=[];
-  if(poy)lines.push(`🏅 **Player of the Year:** ${poy.name} (${(STATE.standings[poy.id]||{}).points||0} pts)`);
-  if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name} (${(STATE.fedexStandings[fedexWinner.id]||{}).points||0} FedEx pts)`);
-  if(wrNo1)lines.push(`🌍 **World No. 1:** ${wrNo1.name} (${(STATE.worldRanking[wrNo1.id]||{}).pts||0} WR pts)`);
+  if(poy)lines.push(`🏅 **Player of the Year:** ${poy.name} (${award.poyPoints} pts)`);
+  if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name} (${award.fedexPoints} FedEx pts)`);
+  if(wrNo1)lines.push(`🌍 **World No. 1:** ${wrNo1.name} (${award.wrPoints} WR pts)`);
   if(mostImproved)lines.push(`📈 **Most Improved:** ${mostImproved.name} (+${bestDelta} pts vs last season)`);
-  else if(STATE.history.length===0)lines.push(`📈 **Most Improved:** Not awarded in Season 1`);
+  else if(!hasPriorSeason)lines.push(`📈 **Most Improved:** Not awarded in Season 1`);
 
   if(lines.length){
     pushNews({type:'awards',icon:'🎖️',trnId:null,trnName:null,
@@ -1656,13 +1596,22 @@ function computeSeasonAwards(){
   }
 }
 
-// Non-destructive season rollover: roster and career totals carry forward,
-// only the season-scoped standings/schedule reset.
+// Season rollover: roster and permanent career totals (points/earnings/wins/majors/
+// best finishes) carry forward forever. But the heavy, ever-growing stuff — every
+// player's blow-by-blow finish at every event this season — is NOT kept once the
+// season is over. It stays visible in each player's profile for the whole current
+// season (via STATE.standings[id].history), and the moment you click "Start Next
+// Season" it gets folded into the compact career summary (foldStandingsIntoCareer)
+// and then discarded. Major wins live forever in STATE.majorChampions; the
+// leaderboard-topper snapshot below (top5) is tiny and safe to keep indefinitely.
 function startNextSeason(){
-  foldStandingsIntoCareer();
-  updateSalaryCaps(); // update caps before standings wipe
-  computeSeasonAwards(); // compute awards before standings wipe
-  STATE.history.push({seasonNumber:STATE.seasonNumber,standings:STATE.standings,schedule:STATE.schedule,archivedAt:Date.now()});
+  computeSeasonAwards(); // compute BEFORE folding, so "last season" comparisons are correct
+  foldStandingsIntoCareer(); // permanent summaries saved, then the season's detailed data is left behind
+  updateSalaryCaps();
+  const top5=STATE.players
+    .map(p=>({playerId:p.id,points:(STATE.standings[p.id]||{}).points||0}))
+    .sort((a,b)=>b.points-a.points).slice(0,5);
+  STATE.history.push({seasonNumber:STATE.seasonNumber,archivedAt:Date.now(),top5});
   STATE.seasonNumber+=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
   STATE.standings={};STATE.activeTournamentId=null;STATE.fedexStandings={};
   STATE.rydercup=null; // reset ryder cup state each season (new one is auto-triggered every 2 seasons)
@@ -1701,7 +1650,12 @@ function rcVenueForSeason(seasonNum){
 
 // Identify which players are USA and which are Europe
 const USA_COUNTRIES=['US','CA','MX'];
-const EUROPE_COUNTRIES=['ENG','SCO','IE','ES','SE','DE','FR','IT','NO','BE','CH','AT','PT','DK','FI','NL','PL','CZ','ZA','NZ'];
+// Ryder Cup Team Europe eligibility = golfers from European nations (incl. Great Britain
+// & Ireland). NIR (Northern Ireland — e.g. Rory McIlroy) was previously missing, which
+// wrongly locked him (and any other NIR-flagged player) out of Team Europe. ZA (South
+// Africa) and NZ (New Zealand) were previously included but no real-world Ryder Cup
+// Team Europe player has ever come from those countries — removed.
+const EUROPE_COUNTRIES=['ENG','SCO','IE','NIR','WAL','ES','SE','DE','FR','IT','NO','BE','CH','AT','PT','DK','FI','NL','PL','CZ'];
 
 function playerTeam(player){
   if(USA_COUNTRIES.includes(player.country))return'USA';
@@ -2199,12 +2153,12 @@ function renderHistoryModal(){
   root.innerHTML=`<div class="modal-overlay" id="hist-overlay">
     <div class="modal" style="max-width:560px;"><div class="modal-pad">
       <h3>Past Seasons</h3>
-      <div class="modal-sub">Archived when season restarted.</div>
+      <div class="modal-sub">A lightweight top-5 snapshot from each completed season (full event-by-event results are cleared once a season ends — see each player's profile for permanent career wins/majors).</div>
       ${STATE.history.slice().reverse().map(h=>{
-        const ranked=Object.entries(h.standings||{}).map(([pid,st])=>({pid,pts:st.points||st||0})).sort((a,b)=>b.pts-a.pts).slice(0,5);
+        const ranked=h.top5||[];
         return`<div style="margin-bottom:16px;border:1px solid var(--line);border-radius:4px;padding:12px;">
           <div style="font-family:'Oswald',sans-serif;font-size:15px;margin-bottom:6px;">Season ${h.seasonNumber}</div>
-          ${ranked.map(({pid,pts},i)=>{const pl=getPlayer(pid);return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${i+1}. ${pl?escapeHTML(pl.name):'Unknown'}</span><span class="num">${typeof pts==='number'?pts.toLocaleString():'—'} pts</span></div>`;}).join('')}
+          ${ranked.map(({playerId,points},i)=>{const pl=getPlayer(playerId);return`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;"><span>${i+1}. ${pl?escapeHTML(pl.name):'Unknown'}</span><span class="num">${typeof points==='number'?points.toLocaleString():'—'} pts</span></div>`;}).join('')}
         </div>`;}).join('')}
       <div class="modal-actions"><button class="btn ghost" id="hist-close">Close</button></div>
     </div></div>
@@ -2622,8 +2576,8 @@ function renderHoleControl(defId,roundIdx,pid){
     <div class="eyebrow" style="margin-bottom:8px;">${escapeHTML(player.name)}'s Scorecard · Round ${roundIdx+1}</div>
     ${scorecardHTML(def,scoreSoFar,holeIdx)}
   </div>`;
-  document.getElementById('hit-shot-btn')?.addEventListener('click',()=>{playShot(hs,effectiveAttrs(player));renderHoleControl(defId,roundIdx,pid);});
-  document.getElementById('confirm-hole-btn')?.addEventListener('click',()=>{recordHoleScore(defId,roundIdx,pid,holeIdx,hs.strokes,hs);advanceAfterHole(defId,roundIdx,pid);});
+  document.getElementById('hit-shot-btn')?.addEventListener('click',()=>{playShot(hs,effectiveAttrs(player),def.difficulty);renderHoleControl(defId,roundIdx,pid);});
+  document.getElementById('confirm-hole-btn')?.addEventListener('click',()=>{recordHoleScore(defId,roundIdx,pid,holeIdx,hs.strokes);advanceAfterHole(defId,roundIdx,pid);});
 }
 
 function holeResultWord(strokes,par){const d=strokes-par;if(d<=-3)return'Albatross+';if(d===-2)return'Eagle';if(d===-1)return'Birdie';if(d===0)return'Par';if(d===1)return'Bogey';if(d===2)return'Double Bogey';return`+${d}`;}
@@ -3301,7 +3255,7 @@ function renderNews(){
           <div style="font-size:24px;margin-bottom:6px;">🏅</div>
           <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-500);margin-bottom:4px;">Player of the Year</div>
           <div style="font-family:'Oswald',sans-serif;font-size:16px;color:var(--turf-900);">${escapeHTML(poy.name)}</div>
-          <div style="font-size:11px;color:var(--ink-500);margin-top:3px;">${(STATE.history.find(h=>h.seasonNumber===latestAward.season)?.standings?.[poy.id]?.points||0).toLocaleString()} pts</div>
+          <div style="font-size:11px;color:var(--ink-500);margin-top:3px;">${(latestAward.poyPoints||0).toLocaleString()} pts</div>
         </div>`:''}
         ${fedex?`<div style="background:var(--paper-100);border:1px solid var(--line);border-radius:4px;padding:14px;text-align:center;">
           <div style="font-size:24px;margin-bottom:6px;">⛳</div>
