@@ -385,6 +385,39 @@ async function pushStateToServer(){
   }
 }
 
+// Lightweight sibling of saveState(), for pure in-progress-tournament edits
+// (right now: hole-by-hole score entry). Sends ONLY schedule/activeTournamentId/
+// currentWeekIndex via PATCH .../live instead of the whole STATE blob — the
+// server does a single $set with no season-chunk processing at all, since
+// live scores don't touch standings/history/news/worldRanking until a
+// tournament is finalized (which still goes through the normal saveState()
+// path elsewhere). Falls back to a normal full saveState() if anything
+// about the live endpoint isn't available, so it never loses data.
+let LIVE_SAVE_IN_FLIGHT=false,LIVE_SAVE_QUEUED=false,LIVE_SAVE_DEBOUNCE_TIMER=null;
+function saveLiveState(){
+  if(USING_LOCAL_FALLBACK){saveStateLocal(STATE);return;} // no server to push to, keep local copy fresh
+  clearTimeout(LIVE_SAVE_DEBOUNCE_TIMER);
+  LIVE_SAVE_DEBOUNCE_TIMER=setTimeout(pushLiveStateToServer,400);
+}
+
+async function pushLiveStateToServer(){
+  if(LIVE_SAVE_IN_FLIGHT){LIVE_SAVE_QUEUED=true;return;}
+  LIVE_SAVE_IN_FLIGHT=true;
+  try{
+    const res=await fetch(`${API_BASE}/state/${PROFILE_ID}/live`,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({schedule:STATE.schedule,activeTournamentId:STATE.activeTournamentId,currentWeekIndex:STATE.currentWeekIndex})
+    });
+    if(!res.ok)throw new Error('Bad response '+res.status);
+  }catch(e){
+    // Live endpoint unreachable — fall back to a full save so the score isn't lost.
+    saveState();
+  }finally{
+    LIVE_SAVE_IN_FLIGHT=false;
+    if(LIVE_SAVE_QUEUED){LIVE_SAVE_QUEUED=false;pushLiveStateToServer();}
+  }
+}
+
 // Real-world PGA Tour Top 100 (OWGR-style ranking, mid-2026), with career stats
 // used to seed attribute ratings and a realStats block shown on the roster/profile.
 const TOP100_PLAYERS=[
@@ -848,7 +881,7 @@ function finishTournamentIfDone(defId){
 
 function recordHoleScore(defId,roundIdx,playerId,holeIdx,strokes){
   const inst=getInstance(defId);if(!inst)return;
-  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveState();
+  inst.rounds[roundIdx].scores[playerId][holeIdx]=strokes;saveLiveState();
 }
 
 function resolvePlayoffHoleIfComplete(defId){
@@ -1392,7 +1425,7 @@ function newsId(){return'news_'+Date.now().toString(36)+Math.random().toString(3
 
 function pushNews(item){
   if(!STATE.news)STATE.news=[];
-  STATE.news.unshift({id:newsId(),season:STATE.seasonNumber,ts:Date.now(),...item});
+  STATE.news.unshift({id:newsId(),season:STATE.seasonNumber,ts:Date.now(),major:false,...item});
   // Cap feed at 200 items
   if(STATE.news.length>200)STATE.news.length=200;
 }
@@ -1517,7 +1550,7 @@ function generateTournamentNews(defId,lb,inst){
   if(runnerP&&!inst.deathHoleTied)body+=` ${runnerP.name} was runner-up at ${toParTxt(runner.toPar)}.`;
 
   pushNews({type,icon,headline,body,trnId:defId,trnName:def.name,_toPar:winnerRow.toPar,
-    winnerId:inst.winnerId,clutchItems:clutchItems.slice(0,4)});
+    winnerId:inst.winnerId,clutchItems:clutchItems.slice(0,4),major:!!def.major});
 
   // Winless drought story (anyone who has played 8+ events with no win and finished top 5 here)
   finishers.filter(r=>r.position>=2&&r.position<=5).forEach(row=>{
