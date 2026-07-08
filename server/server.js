@@ -4,10 +4,12 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const compression = require('compression');
 
 const app = express();
 
 app.use(cors());
+app.use(compression()); // gzip every response — cuts transfer size/CPU on both ends
 app.use(express.json({ limit: '20mb' }));
 
 // Serve the frontend files from the repository root
@@ -24,32 +26,21 @@ const MONGODB_URI =
 /* =====================================================================
    WHY THIS FILE LOOKS DIFFERENT FROM BEFORE
    ---------------------------------------------------------------------
-   Three things in this game only ever grow, never shrink:
-     1. STATE.history            (season archive)
-     2. STATE.news               (news feed)
-     3. worldRanking[id].history (every player's WR-points history)
-   ...and now a fourth, since Strokes Gained was added to every event
-   result:
-     4. STATE.players[i].career.history (every player's full event log,
-        each entry now carrying an {ott,app,arg,putt,total} SG snapshot)
+   The old version stuffed the ENTIRE game — every season's full archive
+   (STATE.history), every news item (STATE.news), and every player's
+   whole world-ranking history (worldRanking[id].history) — into ONE
+   Mongo document per profile. Those three things only ever grow, never
+   shrink, so after a handful of simulated seasons the document creeps
+   toward (and eventually past) MongoDB's hard 16MB-per-document limit.
+   That's the warning you saw in Compass/Atlas.
 
-   Stuffing all four into ONE Mongo document per profile is what pushed
-   old saves toward (and eventually past) MongoDB's hard 16MB-per-document
-   limit — and adding SG data to every entry only makes each one heavier.
-
-   The fix is the same idea as before, just extended to cover #4: keep a
-   small "core" document per profile (roster ratings, schedule, current
-   standings, ryder cup state, etc. — things that don't grow without
-   bound), and split all four unbounded pieces into ONE TINY DOCUMENT PER
-   SEASON. A single season's worth of data stays small no matter how many
-   seasons you rack up, because each season gets its own document instead
-   of piling into one blob.
-
-   SYNC SPEED: writes for a season now go through one bulkWrite() call
-   instead of N separate findOneAndUpdate() round-trips (one per season
-   touched). Reads use .lean() everywhere (skip Mongoose document
-   hydration) and only fetch what's needed. Both core and chunk writes
-   fire in parallel via Promise.all.
+   The fix: keep a small "core" document per profile (roster, schedule,
+   current standings, rydercup state, etc. — things that don't grow
+   without bound), and split the three ever-growing pieces into ONE
+   TINY DOCUMENT PER SEASON. A single season's worth of data is small
+   and stays small no matter how many seasons you rack up, because each
+   season gets its own document instead of piling into one blob. With
+   this scheme you can comfortably simulate hundreds of seasons.
 
    The API contract (GET/PUT/DELETE /api/state/:profileId) is UNCHANGED
    from the frontend's point of view — index.html does not need any
@@ -63,16 +54,16 @@ const saveSchema = new mongoose.Schema(
     profileId: { type: String, required: true, unique: true, index: true },
     state: { type: mongoose.Schema.Types.Mixed, required: true },
   },
-  { timestamps: true, minimize: false }
+  { timestamps: true }
 );
 const Save = mongoose.model("Save", saveSchema);
 
 /* ===== SEASON CHUNK (small, one per profile PER SEASON) =====
-   Holds the four unbounded-growth pieces for a single season:
-     history     -> STATE.history entries whose seasonNumber === season
-     news        -> STATE.news entries whose season === season
-     wr          -> { [playerId]: [worldRanking history entries] }
-     careerHist  -> { [playerId]: [career.history / SG event entries] }
+   Holds the three unbounded-growth pieces for a single season:
+     history    -> STATE.history entries whose seasonNumber === season
+     news       -> STATE.news entries whose season === season
+     wr         -> { [playerId]: [worldRanking history entries for that season] }
+     standings  -> { [playerId]: [standings.history result rows for that season] }
    season = 0 is used as a bucket for anything without a clean numeric
    season (e.g. the "seed"/preseason worldRanking entries). */
 const seasonChunkSchema = new mongoose.Schema(
@@ -82,14 +73,84 @@ const seasonChunkSchema = new mongoose.Schema(
     history: { type: [mongoose.Schema.Types.Mixed], default: [] },
     news: { type: [mongoose.Schema.Types.Mixed], default: [] },
     wr: { type: mongoose.Schema.Types.Mixed, default: {} },
-    careerHist: { type: mongoose.Schema.Types.Mixed, default: {} },
+    standings: { type: mongoose.Schema.Types.Mixed, default: {} },
+    compacted: { type: Boolean, default: false }, // true once this season's detail has been summarized (see compactOldSeasons)
   },
-  { timestamps: true, minimize: false }
+  { timestamps: true }
 );
 seasonChunkSchema.index({ profileId: 1, season: 1 }, { unique: true });
 const SeasonChunk = mongoose.model("SeasonChunk", seasonChunkSchema);
 
-/* ===== SPLIT / REASSEMBLE HELPERS ===== */
+/* ===== SEASON COMPACTION =====
+   Seasons older than KEEP_FULL_SEASONS (counting back from the player's
+   current season) get their heavy per-tournament detail collapsed down
+   to season totals. This keeps EVERY season's storage tiny forever,
+   instead of just "doesn't grow within a season."
+
+   What happens to an old season's chunk:
+     - standings[playerId].history (one row per tournament played) ->
+       collapsed to ONE summary row per player: {points, earnings, wins, events}
+     - wr (world ranking history) -> dropped; the player's current WR
+       points already live in the core doc, this was just the trail
+     - news -> kept ONLY for majors (news.major === true); everything
+       else (droughts, hot streaks, awards blurbs, ryder cup recaps) is
+       dropped for old seasons
+     - history (season-archive top5 entry) -> left alone; it's already
+       one tiny row per season, not worth touching
+     - majorChampions / career.winsList -> untouched, always. They live
+       in the core doc and are the permanent trophy case — see the note
+       at the top of SPLIT / REASSEMBLE HELPERS. Compaction never runs
+       against them. */
+const KEEP_FULL_SEASONS = 3;
+
+function summarizeStandingsHistory(entries) {
+  const rows = Array.isArray(entries) ? entries : [];
+  const summary = { summary: true, points: 0, earnings: 0, wins: 0, events: rows.length };
+  rows.forEach((h) => {
+    summary.points += h.pts || 0;
+    summary.earnings += h.prize || 0;
+    if (h.pos === 1) summary.wins += 1;
+  });
+  return [summary];
+}
+
+// Compacts any of this profile's season chunks that are older than the
+// keep-full window and haven't been compacted yet. Cheap to call on
+// every save: after the first pass, only newly-aged-out seasons match.
+async function compactOldSeasons(profileId, currentSeasonNumber) {
+  const threshold = Number(currentSeasonNumber) - KEEP_FULL_SEASONS;
+  if (!Number.isFinite(threshold) || threshold < 1) return; // nothing old enough yet
+
+  const candidates = await SeasonChunk.find({
+    profileId,
+    season: { $gte: 1, $lte: threshold },
+    compacted: { $ne: true },
+  });
+
+  for (const chunk of candidates) {
+    const compactedStandings = {};
+    const standingsObj = chunk.standings || {};
+    Object.keys(standingsObj).forEach((pid) => {
+      compactedStandings[pid] = summarizeStandingsHistory(standingsObj[pid]);
+    });
+
+    chunk.standings = compactedStandings;
+    chunk.wr = {};
+    chunk.news = (chunk.news || []).filter((n) => n && n.major === true);
+    chunk.compacted = true;
+    await chunk.save();
+  }
+
+  if (candidates.length) {
+    console.log(`🗜️  Compacted ${candidates.length} old season chunk(s) for profile "${profileId}" (season <= ${threshold}).`);
+  }
+}
+
+/* ===== SPLIT / REASSEMBLE HELPERS =====
+   NOTE: state.majorChampions and each player's career.winsList are NOT
+   split out here — they're small forever (one row per major win, ever),
+   they're the permanent trophy-case record, and they must always be
+   shown in full, so they stay in the lean core doc untouched. */
 
 function seasonBucketOf(val) {
   const n = Number(val);
@@ -100,11 +161,11 @@ function seasonBucketOf(val) {
 // per-season chunks, and return a lean "core" copy with those arrays
 // emptied out (they get reattached on load from the chunks).
 function splitState(state) {
-  const chunksBySeason = new Map(); // season -> {history:[], news:[], wr:{}, careerHist:{}}
+  const chunksBySeason = new Map(); // season -> {history:[], news:[], wr:{}, standings:{}}
 
   function getChunk(season) {
     if (!chunksBySeason.has(season)) {
-      chunksBySeason.set(season, { history: [], news: [], wr: {}, careerHist: {} });
+      chunksBySeason.set(season, { history: [], news: [], wr: {}, standings: {} });
     }
     return chunksBySeason.get(season);
   }
@@ -135,21 +196,21 @@ function splitState(state) {
     });
   });
 
-  // Players carry their own unbounded career.history (per-event results,
-  // each now including a Strokes Gained snapshot). Strip it the same way.
-  const players = Array.isArray(state.players) ? state.players : [];
-  const corePlayers = players.map((p) => {
-    const career = p.career || null;
-    if (!career || !Array.isArray(career.history) || career.history.length === 0) {
-      return p; // nothing to split for this player
-    }
-    career.history.forEach((entry) => {
+  // standings[playerId].history -> per-tournament result rows. This was the
+  // one unbounded piece the original split missed: it stayed in the core
+  // doc forever, growing every tournament, every season, per player.
+  const standings = state.standings || {};
+  const coreStandings = {};
+  Object.keys(standings).forEach((playerId) => {
+    const st = standings[playerId] || {};
+    coreStandings[playerId] = { ...st, history: [] }; // strip, kept in chunks
+    const stHistory = Array.isArray(st.history) ? st.history : [];
+    stHistory.forEach((entry) => {
       const season = seasonBucketOf(entry.season);
       const chunk = getChunk(season);
-      if (!chunk.careerHist[p.id]) chunk.careerHist[p.id] = [];
-      chunk.careerHist[p.id].push(entry);
+      if (!chunk.standings[playerId]) chunk.standings[playerId] = [];
+      chunk.standings[playerId].push(entry);
     });
-    return { ...p, career: { ...career, history: [] } };
   });
 
   const core = {
@@ -157,14 +218,14 @@ function splitState(state) {
     history: [],
     news: [],
     worldRanking: coreWorldRanking,
-    players: corePlayers,
+    standings: coreStandings,
   };
   return { core, chunksBySeason };
 }
 
 // Reassemble a full state blob for the frontend from the core doc + all
-// of that profile's season chunks (sorted so history/news/career entries
-// come back in season order, same as before).
+// of that profile's season chunks (sorted so history/news/standings come
+// back in season order, same as before).
 function reassembleState(coreState, chunks) {
   const state = { ...coreState };
   const sorted = [...chunks].sort((a, b) => a.season - b.season);
@@ -172,18 +233,13 @@ function reassembleState(coreState, chunks) {
   const history = [];
   const news = [];
   const worldRanking = { ...(state.worldRanking || {}) };
+  const standings = { ...(state.standings || {}) };
+  // make sure every player has a history array to push into
   Object.keys(worldRanking).forEach((pid) => {
     worldRanking[pid] = { ...worldRanking[pid], history: [...(worldRanking[pid].history || [])] };
   });
-
-  // Prep a map of playerId -> career object so we can push career-history
-  // entries back onto the matching player as we walk the chunks.
-  const players = Array.isArray(state.players) ? state.players.map((p) => ({ ...p })) : [];
-  const playerById = {};
-  players.forEach((p) => {
-    if (!p.career) p.career = { points: 0, earnings: 0, wins: 0, events: 0, seasons: 0, history: [] };
-    else p.career = { ...p.career, history: [...(p.career.history || [])] };
-    playerById[p.id] = p;
+  Object.keys(standings).forEach((pid) => {
+    standings[pid] = { ...standings[pid], history: [...(standings[pid].history || [])] };
   });
 
   sorted.forEach((chunk) => {
@@ -195,17 +251,18 @@ function reassembleState(coreState, chunks) {
       if (!worldRanking[pid].history) worldRanking[pid].history = [];
       worldRanking[pid].history.push(...wr[pid]);
     });
-    const ch = chunk.careerHist || {};
-    Object.keys(ch).forEach((pid) => {
-      if (!playerById[pid]) return; // player was removed from roster since
-      playerById[pid].career.history.push(...ch[pid]);
+    const stChunk = chunk.standings || {};
+    Object.keys(stChunk).forEach((pid) => {
+      if (!standings[pid]) standings[pid] = { points: 0, earnings: 0, wins: 0, events: 0, history: [] };
+      if (!standings[pid].history) standings[pid].history = [];
+      standings[pid].history.push(...stChunk[pid]);
     });
   });
 
   state.history = history;
   state.news = news;
   state.worldRanking = worldRanking;
-  state.players = players;
+  state.standings = standings;
   return state;
 }
 
@@ -223,18 +280,16 @@ app.get('/api/health', (req, res) => {
    GET /api/state/:profileId
    Loads the core doc + every season chunk for this profile and
    reassembles the full state, exactly like the old single-document
-   version used to return. Both queries run in parallel, and .lean()
-   skips Mongoose document hydration since we only need plain objects. */
+   version used to return. */
 app.get('/api/state/:profileId', async (req, res) => {
   try {
     const { profileId } = req.params;
-    const [doc, chunks] = await Promise.all([
-      Save.findOne({ profileId }).lean(),
-      SeasonChunk.find({ profileId }).lean(),
-    ]);
+    const doc = await Save.findOne({ profileId }).lean();
     if (!doc) return res.status(404).json({ error: 'No save found for this profile.' });
 
+    const chunks = await SeasonChunk.find({ profileId }).lean();
     const state = reassembleState(doc.state, chunks);
+
     res.json({ profileId: doc.profileId, state, updatedAt: doc.updatedAt });
   } catch (err) {
     console.error('GET /api/state error:', err);
@@ -244,15 +299,15 @@ app.get('/api/state/:profileId', async (req, res) => {
 
 /* ===== SAVE STATE =====
    PUT /api/state/:profileId
-   The client still sends the entire STATE object, same as before — but
-   the server now splits it: unbounded arrays/maps go into small
-   per-season chunk documents, and everything else goes into the lean
-   core document.
-
-   SPEED: instead of firing one findOneAndUpdate per season touched, all
-   season writes are batched into a single bulkWrite() call — one round
-   trip to Mongo no matter how many seasons a save has accumulated. The
-   core-doc upsert runs concurrently with that bulkWrite. */
+   The client still sends the entire STATE object, same as before — but:
+     1. Chunks already marked `compacted` are skipped on write. Once a
+        season is old enough to compact, live gameplay never touches it
+        again, so re-upserting it every save was pure waste — this is
+        what kept save cost growing forever even after chunking.
+     2. The response no longer reassembles/returns the full state. The
+        client already has the authoritative state in memory (it just
+        sent it); echoing the whole thing back was wasted serialization
+        on every single save. */
 app.put('/api/state/:profileId', async (req, res) => {
   try {
     const { profileId } = req.params;
@@ -276,33 +331,82 @@ app.put('/api/state/:profileId', async (req, res) => {
 
     const { core, chunksBySeason } = splitState(state);
 
-    const bulkOps = [];
+    // Upsert the lean core doc.
+    const doc = await Save.findOneAndUpdate(
+      { profileId },
+      { $set: { state: core } },
+      { upsert: true, new: true }
+    );
+
+    // Find out which seasons are already compacted so we can skip them —
+    // compacted seasons are frozen (gameplay never edits old seasons),
+    // so writing them again every save would be pure waste.
+    const compactedDocs = await SeasonChunk.find(
+      { profileId, compacted: true },
+      { season: 1 }
+    ).lean();
+    const compactedSeasons = new Set(compactedDocs.map((d) => d.season));
+
+    const seasonWrites = [];
     for (const [season, chunk] of chunksBySeason.entries()) {
-      bulkOps.push({
-        updateOne: {
-          filter: { profileId, season },
-          update: { $set: { history: chunk.history, news: chunk.news, wr: chunk.wr, careerHist: chunk.careerHist } },
-          upsert: true,
-        },
-      });
+      if (compactedSeasons.has(season)) continue; // frozen, skip
+      seasonWrites.push(
+        SeasonChunk.findOneAndUpdate(
+          { profileId, season },
+          { $set: { history: chunk.history, news: chunk.news, wr: chunk.wr, standings: chunk.standings } },
+          { upsert: true }
+        )
+      );
     }
+    await Promise.all(seasonWrites);
 
-    const [doc] = await Promise.all([
-      Save.findOneAndUpdate(
-        { profileId },
-        { $set: { state: core } },
-        { upsert: true, new: true }
-      ),
-      bulkOps.length ? SeasonChunk.bulkWrite(bulkOps, { ordered: false }) : Promise.resolve(),
-    ]);
+    // Roll any newly-aged-out seasons into summary form. Cheap after the
+    // first pass — only fires again once a new season crosses the line.
+    await compactOldSeasons(profileId, core.seasonNumber);
 
-    // Return the full reassembled state, same shape the client expects.
-    const chunks = await SeasonChunk.find({ profileId }).lean();
-    const fullState = reassembleState(doc.state, chunks);
-    res.json({ profileId: doc.profileId, state: fullState, updatedAt: doc.updatedAt });
+    res.json({ profileId: doc.profileId, updatedAt: doc.updatedAt });
   } catch (err) {
     console.error('PUT /api/state error:', err);
     res.status(500).json({ error: 'Failed to save.' });
+  }
+});
+
+/* ===== LIVE TOURNAMENT SAVE (lightweight, no season-chunk work at all) =====
+   PATCH /api/state/:profileId/live
+   Body: { schedule, activeTournamentId, currentWeekIndex }
+
+   Hole-by-hole score entry (recordHoleScore in index.html) used to call
+   the full PUT above on every single stroke typed — sending and
+   reprocessing the ENTIRE game state (every season chunk) just to
+   record one number. Live, in-progress tournament data (STATE.schedule)
+   never touches standings/history/news/worldRanking until the
+   tournament is finalized elsewhere, so it doesn't need any of that
+   machinery. This endpoint does one `$set` on three fields in the core
+   doc and nothing else — no splitState, no season chunks, no reassembly. */
+app.patch('/api/state/:profileId/live', async (req, res) => {
+  try {
+    const { profileId } = req.params;
+    const { schedule, activeTournamentId, currentWeekIndex } = req.body || {};
+    if (!Array.isArray(schedule)) {
+      return res.status(400).json({ error: 'Request body must include a "schedule" array.' });
+    }
+
+    const update = {
+      'state.schedule': schedule,
+      'state.activeTournamentId': activeTournamentId ?? null,
+    };
+    if (currentWeekIndex !== undefined) update['state.currentWeekIndex'] = currentWeekIndex;
+
+    const doc = await Save.findOneAndUpdate(
+      { profileId },
+      { $set: update },
+      { upsert: true, new: true }
+    );
+
+    res.json({ ok: true, updatedAt: doc.updatedAt });
+  } catch (err) {
+    console.error('PATCH /api/state/live error:', err);
+    res.status(500).json({ error: 'Failed to save live tournament state.' });
   }
 });
 
@@ -339,11 +443,11 @@ app.get('/api/profiles', async (req, res) => {
 
 /* ===== AUTO-MIGRATION (runs on every startup, self-skips once done) =====
    Old saves (from before this file was updated) still have everything —
-   full history/news/worldRanking-history/career-history — crammed into
-   one Save.state blob. This walks every profile once, splits any
-   old-format data into season chunks, and leaves already-migrated
-   profiles untouched. Idempotent (checks before touching each profile),
-   so it's safe to run on every deploy/restart — including on Render. */
+   full history/news/worldRanking-history — crammed into one Save.state
+   blob. This walks every profile once, splits any old-format data into
+   season chunks, and leaves already-migrated profiles untouched. Because
+   it's idempotent (checks before touching each profile), it's completely
+   safe for this to run on every deploy/restart — including on Render. */
 async function migrateLegacySavesIfNeeded() {
   const saves = await Save.find({});
   let migrated = 0;
@@ -356,26 +460,21 @@ async function migrateLegacySavesIfNeeded() {
       Object.values(state.worldRanking || {}).some(
         (wr) => Array.isArray(wr && wr.history) && wr.history.length > 0
       ) ||
-      (Array.isArray(state.players) &&
-        state.players.some(
-          (p) => p.career && Array.isArray(p.career.history) && p.career.history.length > 0
-        ));
+      Object.values(state.standings || {}).some(
+        (st) => Array.isArray(st && st.history) && st.history.length > 0
+      );
 
     if (!looksUnmigrated) continue; // already lean -> already migrated
 
     const { core, chunksBySeason } = splitState(state);
 
-    const bulkOps = [];
     for (const [season, chunk] of chunksBySeason.entries()) {
-      bulkOps.push({
-        updateOne: {
-          filter: { profileId: doc.profileId, season },
-          update: { $set: { history: chunk.history, news: chunk.news, wr: chunk.wr, careerHist: chunk.careerHist } },
-          upsert: true,
-        },
-      });
+      await SeasonChunk.findOneAndUpdate(
+        { profileId: doc.profileId, season },
+        { $set: { history: chunk.history, news: chunk.news, wr: chunk.wr, standings: chunk.standings } },
+        { upsert: true }
+      );
     }
-    if (bulkOps.length) await SeasonChunk.bulkWrite(bulkOps, { ordered: false });
 
     doc.state = core;
     await doc.save();
@@ -385,6 +484,20 @@ async function migrateLegacySavesIfNeeded() {
 
   if (migrated > 0) console.log(`✅ Auto-migration complete: ${migrated} profile(s) migrated.`);
   else console.log(`✅ Auto-migration check: nothing to do, all saves already in season-chunk format.`);
+
+  // Also sweep compaction across every profile on startup — catches any
+  // profile whose season count already exceeds the keep-full window,
+  // including ones that were already in season-chunk format before this
+  // update (so upgrading applies compaction immediately, not just on
+  // this profile's next save).
+  const allSaves = await Save.find({}, { profileId: 1, 'state.seasonNumber': 1 }).lean();
+  for (const doc of allSaves) {
+    try {
+      await compactOldSeasons(doc.profileId, doc.state && doc.state.seasonNumber);
+    } catch (err) {
+      console.error(`⚠️  Compaction sweep failed for profile "${doc.profileId}":`, err);
+    }
+  }
 }
 
 /* ===== STARTUP ===== */
@@ -392,7 +505,6 @@ async function start() {
   try {
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
-      maxPoolSize: 10,
     });
     console.log(`✅ Connected to MongoDB at ${MONGODB_URI}`);
   } catch (err) {
@@ -411,8 +523,9 @@ async function start() {
     console.log(`🏌️  Tee Sheet Tour save server running on http://localhost:${PORT}`);
     console.log(`📡 API base: http://localhost:${PORT}/api`);
     console.log(`🏆 Ryder Cup mode: USA vs Europe (auto every odd season)`);
-    console.log(`📊 Strokes Gained: tracked per event (OTT/APP/ARG/PUTT) and rolled up per season & career`);
-    console.log(`🗂️  Storage: 1 core doc + 1 doc per season per profile, bulk-synced (no more 16MB blobs)`);
+    console.log(`🗂️  Storage: 1 core doc + 1 doc per season per profile (no more 16MB blobs)`);
+    console.log(`🗜️  Seasons older than ${KEEP_FULL_SEASONS} get auto-compacted to summary totals`);
+    console.log(`⚡ PATCH /api/state/:profileId/live handles hole-by-hole scoring without touching season chunks`);
   });
 }
 
