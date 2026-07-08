@@ -397,11 +397,24 @@ app.patch('/api/state/:profileId/live', async (req, res) => {
     };
     if (currentWeekIndex !== undefined) update['state.currentWeekIndex'] = currentWeekIndex;
 
+    // upsert:false is intentional and important — this endpoint must never
+    // be allowed to CREATE a save document. A dot-path $set on a brand new
+    // doc would produce a "state" object containing ONLY schedule and
+    // activeTournamentId, missing players/standings/worldRanking/everything
+    // else. If that ever happened (e.g. a hole score gets recorded before
+    // the profile's first full save has landed), the corrupted doc would
+    // load back as a nearly-empty state on next visit. Instead, if no full
+    // save exists yet, this is a no-op (404) and the client falls back to
+    // a normal full saveState(), which is always safe to create the doc.
     const doc = await Save.findOneAndUpdate(
       { profileId },
       { $set: update },
-      { upsert: true, new: true }
+      { upsert: false, new: true }
     );
+
+    if (!doc) {
+      return res.status(404).json({ error: 'No existing save for this profile yet — do a full save first.' });
+    }
 
     res.json({ ok: true, updatedAt: doc.updatedAt });
   } catch (err) {
