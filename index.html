@@ -217,10 +217,10 @@ const TOURNAMENT_SEEDS=[
   {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.8,seed:29,yard:-5,date:"Jul 26",difficulty:1.2},
   {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:10.0,seed:30,yard:-1,date:"Aug 2",difficulty:1.5},
   {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.5,seed:31,yard:-10,date:"Aug 9",difficulty:1.2},
-  // ── FedExCup Playoffs (no cut) ──
-  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,date:"Aug 16",difficulty:0.5},
-  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,date:"Aug 23",difficulty:1},
-  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,date:"Aug 30",difficulty:0.5},
+  // ── FedExCup Playoffs (no cut, progressive field: 60 → 40 → 20 of your roster) ──
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,playoffFieldSize:60,date:"Aug 16",difficulty:0.5},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,playoffFieldSize:40,date:"Aug 23",difficulty:1},
+  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,playoffFieldSize:20,tourChampionship:true,date:"Aug 30",difficulty:0.5},
   // ── Ryder Cup — odd seasons only, immediately after the Tour Championship ──
   {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep",difficulty:0},
 ];
@@ -228,7 +228,8 @@ const TOURNAMENT_SEEDS=[
 function buildTournamentDefs(){
   return TOURNAMENT_SEEDS.map((t,idx)=>({
     id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,date:t.date,
-    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
+    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,tourChampionship:!!t.tourChampionship,
+    playoffFieldSize:t.playoffFieldSize||null,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
     difficulty:typeof t.difficulty==='number'?t.difficulty:0,
     holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
   }));
@@ -286,10 +287,10 @@ function freshState(){
     tournamentDefs:buildTournamentDefs(),
     schedule:[],
     currentWeekIndex:0,
-    standings:{},           // playerId -> {points, earnings, wins, events, history:[{trnName,pos,pts,prize}]}
+    standings:{},           // playerId -> {points, earnings, wins, events, history:[{trnName,pos,pts,prize}]} — this IS the FedExCup standings too, single unified points race, no separate list
     history:[],
     activeTournamentId:null,
-    fedexStandings:{},      // playerId -> {points, earnings} — playoff events only, not counted for tour standings
+    fedexCupChampions:[],   // [{season, playerId, toPar, strokes}] — permanent trophy record, one entry per season (Tour Championship winner)
     majorChampions:{},      // trnId -> [{season, playerId, toPar, strokes}]
     news:[],                // [{id,season,trnId,type,icon,headline,body,ts,clutch}]
     awards:[],              // [{season,playerOfYear,fedexWinner,mostImproved}]
@@ -304,7 +305,7 @@ function normalizeState(p){
   p.players=p.players||[];
   p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
   p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
-  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexStandings=p.fedexStandings||{};p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
+  p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexCupChampions=p.fedexCupChampions||[];p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.rydercupHistory)p.rydercupHistory=[];
   // Backfill: existing saves made before World Ranking seeding was added had every
   // player parked at 0 pts until they actually played a tournament. Give any player
@@ -851,19 +852,25 @@ function finishTournamentIfDone(defId){
   // ── No tie: award everything now ──
   if(finishers.length)inst.winnerId=finishers[0].playerId;
   finishers.forEach(row=>{
-    const pts=pointsForPosition(row.position,def.major);
+    // St. Jude & BMW pay major-tier points (matches the real 750-pt parity with
+    // majors/Players introduced for 2026); the Tour Championship no longer adds
+    // any further cumulative points — as of the 2025+ format it's a clean
+    // 72-hole shootout among the top 20 (30 on the real Tour) that crowns the
+    // FedExCup Champion on its own, not by adding to the season point total.
+    const isMajorTierPoints=def.major||(def.playoff&&!def.tourChampionship);
+    const pts=pointsForPosition(row.position,isMajorTierPoints);
     const prize=prizeForPosition(row.position,def.purseM,finishers.length);
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     const st=STATE.standings[row.playerId];
-    if(def.playoff){
-      if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
-      STATE.fedexStandings[row.playerId].points+=pts;
-      STATE.fedexStandings[row.playerId].earnings+=prize;
-    } else { st.points+=pts; }
+    if(!def.tourChampionship)st.points+=pts; // single unified points race — this IS the FedExCup standings
     st.earnings+=prize;st.events++;
     if(row.position===1)st.wins++;
-    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.playoff?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
+    st.history.push({trnId:def.id,trnName:def.name,pos:row.position,pts:def.tourChampionship?0:pts,prize,toPar:row.toPar,strokes:row.strokes,season:STATE.seasonNumber,fieldRelToPar:row.toPar-fieldAvgToPar,fedex:!!def.playoff});
   });
+  if(def.tourChampionship&&finishers.length){
+    if(!STATE.fedexCupChampions)STATE.fedexCupChampions=[];
+    STATE.fedexCupChampions.push({season:STATE.seasonNumber,playerId:finishers[0].playerId,toPar:finishers[0].toPar,strokes:finishers[0].strokes});
+  }
   if(def.major&&finishers.length){
     if(!STATE.majorChampions[def.id])STATE.majorChampions[def.id]=[];
     STATE.majorChampions[def.id].push({season:STATE.seasonNumber,playerId:finishers[0].playerId,toPar:finishers[0].toPar,strokes:finishers[0].strokes});
@@ -932,25 +939,20 @@ function resolvePlayoffHoleIfComplete(defId){
     // Final position: winner=1, other tied players=2, rest unchanged
     const finalPos=isWinner?1:(isTied?2:row.position);
 
-    const pts=pointsForPosition(finalPos,def.major);
+    const isMajorTierPoints=def.major||(def.playoff&&!def.tourChampionship);
+    const pts=pointsForPosition(finalPos,isMajorTierPoints);
     const prize=prizeForPosition(finalPos,def.purseM,finishers.length);
 
     if(!STATE.standings[row.playerId])STATE.standings[row.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
     const st=STATE.standings[row.playerId];
 
-    if(def.playoff){
-      if(!STATE.fedexStandings[row.playerId])STATE.fedexStandings[row.playerId]={points:0,earnings:0};
-      STATE.fedexStandings[row.playerId].points+=pts;
-      STATE.fedexStandings[row.playerId].earnings+=prize;
-    } else {
-      st.points+=pts;
-    }
+    if(!def.tourChampionship)st.points+=pts; // single unified points race
     st.earnings+=prize;
     st.events++;
     if(isWinner)st.wins++; // ONLY the playoff winner gets a win
     st.history.push({
       trnId:def.id,trnName:def.name,pos:finalPos,
-      pts:def.playoff?0:pts,prize,
+      pts:def.tourChampionship?0:pts,prize,
       toPar:row.toPar,strokes:row.strokes,
       season:STATE.seasonNumber,
       fieldRelToPar:row.toPar-fieldAvgToPar,
@@ -958,6 +960,11 @@ function resolvePlayoffHoleIfComplete(defId){
       playoffWin:isWinner,
     });
   });
+
+  if(def.tourChampionship){
+    if(!STATE.fedexCupChampions)STATE.fedexCupChampions=[];
+    STATE.fedexCupChampions.push({season:STATE.seasonNumber,playerId:winnerId});
+  }
 
   // Major champion — only the playoff winner
   if(def.major){
@@ -1163,11 +1170,11 @@ function openProfileModal(pid){
           // Tournament wins: permanent career.winsList, topped up with the current
           // in-progress season's wins (folded into career.winsList once the season ends).
           const allWins=[...(career.winsList||[]),...(st.history||[]).filter(h=>h.pos===1)];
-          const fedexPts=(STATE.fedexStandings[p.id]||{}).points||0;
+          const fedexTitles=(STATE.fedexCupChampions||[]).filter(f=>f.playerId===p.id).length;
           const cap=p.salaryCap?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(63,122,77,0.12);color:var(--turf-700);margin-left:8px;">CAP ${formatMoney(p.salaryCap)}</span>`:'';
-          if(!allWins.length&&!fedexPts)return'';
+          if(!allWins.length&&!fedexTitles)return'';
           return`<div style="margin-bottom:18px;">
-            <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;">🏆 Tournament Wins (${allWins.length})${cap}${fedexPts?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;padding:2px 8px;border-radius:10px;background:rgba(168,54,42,0.1);color:var(--flag-red);margin-left:4px;">FedEx ${fedexPts.toLocaleString()} pts</span>`:''}
+            <div style="font-size:11px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px;">🏆 Tournament Wins (${allWins.length})${cap}${fedexTitles?`<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;padding:2px 8px;border-radius:10px;background:rgba(168,54,42,0.1);color:var(--flag-red);margin-left:4px;">🏆 FedExCup ×${fedexTitles}</span>`:''}
             </div>
             ${allWins.length===0?`<div style="font-size:12px;color:var(--ink-500);font-style:italic;">No wins yet.</div>`:`
             <div style="display:flex;flex-direction:column;gap:4px;">
@@ -1319,7 +1326,7 @@ function foldStandingsIntoCareer(){
 // the person explicitly wants to start over from scratch.
 function restartSeason(){
   STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
-  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.fedexStandings={};STATE.news=[];STATE.awards=[];STATE.rydercup=null;STATE.worldRanking={};STATE.rydercupHistory=[];
+  STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.news=[];STATE.awards=[];STATE.rydercup=null;STATE.worldRanking={};STATE.rydercupHistory=[];
   saveState();
 }
 
@@ -1518,8 +1525,13 @@ function generateTournamentNews(defId,lb,inst){
     }
   } else if(def.playoff){
     icon='⛳';type='playoff';
-    headline=`${winner.name} takes ${def.name} FedEx Cup event`;
-    body=`${winner.name} finished at ${toParTxt(winnerRow.toPar)} at ${def.course} to top the field and bank ${formatMoney(prize1)} in FedEx Cup earnings. Points go to the separate FedEx standings.`;
+    if(def.tourChampionship){
+      headline=`${winner.name} wins the Tour Championship — 2026 FedExCup Champion`;
+      body=`${winner.name} finished at ${toParTxt(winnerRow.toPar)} at East Lake to win the Tour Championship outright and be crowned FedExCup Champion.`;
+    }else{
+      headline=`${winner.name} takes ${def.name} FedExCup event`;
+      body=`${winner.name} finished at ${toParTxt(winnerRow.toPar)} at ${def.course} to top the field, bank ${formatMoney(prize1)}, and add major-tier points to the FedExCup standings.`;
+    }
   } else if(def.teamEvent){
     icon='🤝';type='team';
     headline=`Team event thriller: ${winner.name} leads squad to ${def.name} victory`;
@@ -1577,11 +1589,10 @@ function computeSeasonAwards(){
     .sort((a,b)=>b.pts-a.pts);
   const poy=standingsSorted[0]?.pts>0?standingsSorted[0].p:null;
 
-  // FedEx Cup winner = leader in fedexStandings
-  const fedexSorted=STATE.players
-    .map(p=>({p,pts:(STATE.fedexStandings[p.id]||{}).points||0}))
-    .sort((a,b)=>b.pts-a.pts);
-  const fedexWinner=fedexSorted[0]?.pts>0?fedexSorted[0].p:null;
+  // FedEx Cup winner = whoever actually won the Tour Championship this season
+  // (real format: the TC winner IS the Champion outright, not a separate points race)
+  const fedexChampEntry=(STATE.fedexCupChampions||[]).find(f=>f.season===season);
+  const fedexWinner=fedexChampEntry?getPlayer(fedexChampEntry.playerId):null;
 
   // Most Improved: compare this season's points to last season's points, which we
   // keep as a tiny per-player field (p.career.lastSeasonPoints) instead of keeping
@@ -1609,14 +1620,14 @@ function computeSeasonAwards(){
     // stash the point totals directly on the award so the honours board never needs
     // to dig back through a season-history archive to display them.
     poyPoints:poy?(STATE.standings[poy.id]||{}).points||0:0,
-    fedexPoints:fedexWinner?(STATE.fedexStandings[fedexWinner.id]||{}).points||0:0,
+    fedexToPar:fedexChampEntry?fedexChampEntry.toPar:null,
     wrPoints:wrNo1?(STATE.worldRanking[wrNo1.id]||{}).pts||0:0};
   STATE.awards.push(award);
 
   // Generate a news story for the awards
   const lines=[];
   if(poy)lines.push(`🏅 **Player of the Year:** ${poy.name} (${award.poyPoints} pts)`);
-  if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name} (${award.fedexPoints} FedEx pts)`);
+  if(fedexWinner)lines.push(`⛳ **FedEx Cup Winner:** ${fedexWinner.name}${award.fedexToPar!=null?` (Tour Championship ${award.fedexToPar===0?'E':award.fedexToPar>0?'+'+award.fedexToPar:award.fedexToPar})`:''}`);
   if(wrNo1)lines.push(`🌍 **World No. 1:** ${wrNo1.name} (${award.wrPoints} WR pts)`);
   if(mostImproved)lines.push(`📈 **Most Improved:** ${mostImproved.name} (+${bestDelta} pts vs last season)`);
   else if(!hasPriorSeason)lines.push(`📈 **Most Improved:** Not awarded in Season 1`);
@@ -1646,7 +1657,7 @@ function startNextSeason(){
     .sort((a,b)=>b.points-a.points).slice(0,5);
   STATE.history.push({seasonNumber:STATE.seasonNumber,archivedAt:Date.now(),top5});
   STATE.seasonNumber+=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
-  STATE.standings={};STATE.activeTournamentId=null;STATE.fedexStandings={};
+  STATE.standings={};STATE.activeTournamentId=null;
   STATE.rydercup=null; // reset ryder cup state each season (new one is auto-triggered every 2 seasons)
   saveState();
 }
@@ -1997,12 +2008,6 @@ function renderStandings(){
     .sort((a,b)=>b.st.points-a.st.points);
   const maxEarnings=Math.max(...rows.map(r=>r.st.earnings||0),1);
 
-  // FedEx rows
-  const fedexRows=STATE.players
-    .map(p=>({player:p,fx:STATE.fedexStandings[p.id]||{points:0,earnings:0}}))
-    .filter(r=>r.fx.points>0)
-    .sort((a,b)=>b.fx.points-a.fx.points);
-
   // Salary cap rows
   const salaryRows=STATE.players.map(p=>{
     const cap=p.salaryCap||null;
@@ -2011,7 +2016,7 @@ function renderStandings(){
   }).filter(r=>r.cap);
 
   el.innerHTML=`<div class="section-head">
-    <div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>Tour Standings</h2></div>
+    <div><span class="eyebrow">Season ${STATE.seasonNumber}</span><h2>FedExCup Standings</h2></div>
     ${STATE.history.length?`<button class="btn ghost btn-sm" id="view-history-btn">Past Seasons (${STATE.history.length})</button>`:''}
   </div>
   ${rows.length===0||rows.every(r=>r.st.points===0)?`<div class="empty-state"><h3>No standings yet</h3><p>Points appear once a tournament finishes.</p></div>`:`
@@ -2043,34 +2048,6 @@ function renderStandings(){
       </tr>`).join('')}</tbody>
     </table>
   </div>`}
-  ${fedexRows.length?`
-  <div style="margin-bottom:20px;">
-    <div class="section-head" style="margin-top:8px;">
-      <div><span class="eyebrow">Playoffs</span><h2>FedEx Cup Points</h2></div>
-      <span style="font-size:11px;color:var(--ink-500);font-family:'Barlow Condensed',sans-serif;">Points from playoff events only — not counted in Tour Standings</span>
-    </div>
-    <div class="card" style="overflow:hidden;">
-      <table style="width:100%;border-collapse:collapse;">
-        <thead><tr style="background:var(--flag-red);color:#fff;">
-          <th style="${thStyle}width:44px;">Rank</th>
-          <th style="${thStyle}text-align:left;">Player</th>
-          <th style="${thStyle}">FedEx Pts</th>
-          <th style="${thStyle}">Playoff Earnings</th>
-        </tr></thead>
-        <tbody>${fedexRows.map((r,i)=>`<tr style="border-bottom:1px solid var(--line);${i===0?'background:rgba(168,54,42,0.07);':''}">
-          <td style="${tdStyle}" class="num">${i+1}</td>
-          <td style="${tdStyle}text-align:left;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="width:24px;height:24px;border-radius:50%;background:${avatarColor(r.player.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(r.player.name)}</span>
-              <button class="btn ghost btn-sm" style="padding:2px 6px;" data-view-profile="${r.player.id}">${flagEmoji(r.player.country)} ${escapeHTML(r.player.name)}</button>
-            </div>
-          </td>
-          <td style="${tdStyle}" class="num" style="font-size:16px;color:var(--flag-red);">${r.fx.points.toLocaleString()}</td>
-          <td style="${tdStyle}" class="num" style="color:var(--turf-700);">${formatMoney(r.fx.earnings)}</td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>
-  </div>`:''}
   ${salaryRows.length?`
   <div style="margin-bottom:20px;">
     <div class="section-head" style="margin-top:8px;">
@@ -2208,10 +2185,11 @@ function openFieldModal(defId){
     rcInit(defId);return;
   }
   if(def.playoff){
-    const top10=topPlayersByPoints(10);
-    if(top10.length<2){showToast('Need at least 2 players with points on the board to set the playoff field.',true);return;}
-    const ids=top10.map(p=>p.id);
-    startTournament(defId,ids);showToast(`${def.name} field set — Top 10 in points only.`);
+    const n=def.playoffFieldSize||10;
+    const top=topPlayersByPoints(n);
+    if(top.length<2){showToast('Need at least 2 players with points on the board to set the playoff field.',true);return;}
+    const ids=top.map(p=>p.id);
+    startTournament(defId,ids);showToast(`${def.name} field set — Top ${top.length} in FedExCup points.`);
     STATE.activeTournamentId=defId;saveState();switchView('tournament');return;
   }
   const selected=new Set(inst.field);
@@ -2257,7 +2235,23 @@ function openFieldModal(defId){
 }
 
 /* ===== TOURNAMENT VIEW ===== */
-let PLAY_UI={defId:null,roundIdx:0,selectedPlayerId:null,holeIdx:0,holeState:null,selectedGroupIdx:0};
+// holeStates caches each player's in-progress shot state by playerId, so
+// tabbing to a different player in the group (before they've holed out)
+// doesn't wipe the shots already hit — same as real golf, players in a
+// group take turns rather than one finishing the hole in isolation.
+// PLAY_UI.holeState is kept as a convenience alias for whichever player is
+// currently selected; it always points at that player's entry in holeStates.
+let PLAY_UI={defId:null,roundIdx:0,selectedPlayerId:null,holeIdx:0,holeState:null,holeStates:{},selectedGroupIdx:0,multiGroupIdxs:new Set()};
+
+// Sets the CURRENTLY SELECTED player's working hole state, keeping the
+// per-player cache (holeStates) and the convenience alias (holeState) in
+// sync. Always route new-hole-state assignments for the selected player
+// through this instead of setting PLAY_UI.holeState directly.
+function setPlayHoleState(pid,state){
+  PLAY_UI.holeState=state;
+  if(state)PLAY_UI.holeStates[pid]=state;
+  else delete PLAY_UI.holeStates[pid];
+}
 
 function lieLabel(lie){return{tee:'Tee',fairway:'Fairway',rough:'Rough',sand:'Bunker',recovery:'Trouble',green:'Green',hole:'Holed'}[lie]||lie;}
 function lieColor(lie){return{tee:'var(--turf-700)',fairway:'var(--turf-600)',rough:'#8a6d2f',sand:'var(--board-amber)',recovery:'var(--flag-red)',green:'var(--turf-700)',hole:'var(--turf-900)'}[lie]||'var(--ink-700)';}
@@ -2369,7 +2363,7 @@ function renderCompletePanel(defId,lb){
       ⚡ SUDDEN DEATH PLAYOFF — ${deathWinner?escapeHTML(deathWinner.name):'Winner'} wins with a ${inst.deathHoleScore} on the playoff hole
     </div>`:''}
     <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:18px;">
-      ${[['Score',lb[0]?(lb[0].toPar===0?'E':lb[0].toPar>0?'+'+lb[0].toPar:lb[0].toPar):'—'],['Strokes',lb[0]?lb[0].strokes:'—'],['Prize',formatMoney(prize1)],['Tour Points',def.playoff?'FedEx only':pointsForPosition(1,def.major)]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px 16px;border-radius:4px;"><div class="eyebrow" style="margin-bottom:2px;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
+      ${[['Score',lb[0]?(lb[0].toPar===0?'E':lb[0].toPar>0?'+'+lb[0].toPar:lb[0].toPar):'—'],['Strokes',lb[0]?lb[0].strokes:'—'],['Prize',formatMoney(prize1)],['FedExCup Points',def.tourChampionship?'FedExCup Champion':pointsForPosition(1,def.major||def.playoff)]].map(([l,v])=>`<div style="background:var(--sand-200);padding:10px 16px;border-radius:4px;"><div class="eyebrow" style="margin-bottom:2px;">${l}</div><div class="num" style="font-size:20px;">${v}</div></div>`).join('')}
     </div>
     <button class="btn ghost" id="back-to-schedule-btn">Back to Schedule</button>
   </div>`;
@@ -2442,9 +2436,13 @@ function renderPlayPanel(defId,roundIdx,lb){
         const doneCount=g.filter(pid=>!pending.includes(pid)).length;
         const allDone=g.length>0&&doneCount===g.length;
         const active=gi===activeGroupIdx;
-        return`<button data-select-group="${gi}" class="btn ${active?'':'ghost'} btn-sm ${allDone?'is-done':''}">
-          Grp ${gi+1} ${allDone?'✓':`(${g.length-doneCount}/${g.length})`}
-        </button>`;}).join('')}
+        const checked=PLAY_UI.multiGroupIdxs&&PLAY_UI.multiGroupIdxs.has(gi);
+        return`<span style="display:inline-flex;align-items:center;gap:3px;">
+          <input type="checkbox" data-multi-group="${gi}" ${checked?'checked':''} title="Include Group ${gi+1} in bulk sim" style="width:14px;height:14px;accent-color:var(--board-amber);" ${allDone?'disabled':''}>
+          <button data-select-group="${gi}" class="btn ${active?'':'ghost'} btn-sm ${allDone?'is-done':''}">
+            Grp ${gi+1} ${allDone?'✓':`(${g.length-doneCount}/${g.length})`}
+          </button>
+        </span>`;}).join('')}
     </div>
 
     <div class="player-chip-row">
@@ -2463,6 +2461,11 @@ function renderPlayPanel(defId,roundIdx,lb){
       <button class="btn ghost btn-sm" id="sim-group-round-btn" ${groupPending.length===0?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;" title="Simulate the rest of the round for this group only">Group · full round</button>
       <button class="btn ghost btn-sm" id="sim-selected-hole-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} title="Simulate next hole for selected player only">Selected · hole</button>
       <button class="btn ghost btn-sm" id="sim-selected-btn" ${!PLAY_UI.selectedPlayerId?'disabled':''} style="border-color:var(--board-amber);color:#7a5a0a;">Selected · full round</button>
+    </div>
+    <div class="sim-controls-row" style="margin-top:10px;">
+      <span class="row-label">Checked groups${PLAY_UI.multiGroupIdxs&&PLAY_UI.multiGroupIdxs.size?` (${PLAY_UI.multiGroupIdxs.size})`:''}:</span>
+      <button class="btn ghost btn-sm" id="sim-multi-group-hole-btn" title="Simulate current hole for every checked group (tick boxes above; defaults to the active group if none checked)">Checked · next hole</button>
+      <button class="btn ghost btn-sm" id="sim-multi-group-round-btn" style="border-color:var(--board-amber);color:#7a5a0a;" title="Simulate the rest of the round for every checked group">Checked · full round</button>
     </div>
     <div class="sim-controls-row" style="margin-top:10px;">
       <span class="row-label">Whole field:</span>
@@ -2484,6 +2487,17 @@ function renderPlayPanel(defId,roundIdx,lb){
     btn.addEventListener('click',()=>selectPlayerForPlay(defId,roundIdx,btn.dataset.selectPlayer));
   });
 
+  // Multi-select groups for bulk sim (checkboxes, separate from the single
+  // "active" group used for hole-by-hole play above)
+  panel.querySelectorAll('[data-multi-group]').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const gi=parseInt(cb.dataset.multiGroup,10);
+      if(!PLAY_UI.multiGroupIdxs)PLAY_UI.multiGroupIdxs=new Set();
+      if(cb.checked)PLAY_UI.multiGroupIdxs.add(gi);else PLAY_UI.multiGroupIdxs.delete(gi);
+      renderTournament();
+    });
+  });
+
   // Sim: next hole for this group only
   document.getElementById('sim-group-hole-btn')?.addEventListener('click',()=>{
     const gp=groupPids.filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
@@ -2495,8 +2509,8 @@ function renderPlayPanel(defId,roundIdx,lb){
     showToast(`Simulated hole ${minHole+1} for Group ${activeGroupIdx+1} (${toSim.length} players).`);
     if(PLAY_UI.selectedPlayerId&&inst.rounds[roundIdx].scores[PLAY_UI.selectedPlayerId][PLAY_UI.holeIdx]!=null){
       const next=nextOpenHoleIdx(inst,roundIdx,PLAY_UI.selectedPlayerId);
-      if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
-      else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+      if(next===-1){PLAY_UI.selectedPlayerId=null;setPlayHoleState(PLAY_UI.selectedPlayerId,null);}
+      else{PLAY_UI.holeIdx=next;const st=newHoleState(def.holes[next]);st._forHoleIdx=next;setPlayHoleState(PLAY_UI.selectedPlayerId,st);}
     }
     renderTournament();
   });
@@ -2506,8 +2520,37 @@ function renderPlayPanel(defId,roundIdx,lb){
     const gp=groupPids.filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
     if(gp.length===0)return;
     simulateRoundForPlayers(defId,roundIdx,gp);
-    PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;
+    PLAY_UI.selectedPlayerId=null;setPlayHoleState(null,null);
     showToast(`Simulated full round ${roundIdx+1} for Group ${activeGroupIdx+1} (${gp.length} players).`);
+    renderTournament();
+  });
+
+  // Sim: next hole for MULTIPLE selected groups at once
+  document.getElementById('sim-multi-group-hole-btn')?.addEventListener('click',()=>{
+    const idxs=PLAY_UI.multiGroupIdxs&&PLAY_UI.multiGroupIdxs.size?[...PLAY_UI.multiGroupIdxs]:[activeGroupIdx];
+    const pids=idxs.flatMap(gi=>(groups[gi]||[])).filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
+    if(pids.length===0)return;
+    const holes=pids.map(pid=>nextOpenHoleIdx(inst,roundIdx,pid)).filter(h=>h>=0);
+    const minHole=Math.min(...holes);
+    const toSim=pids.filter(pid=>nextOpenHoleIdx(inst,roundIdx,pid)===minHole);
+    simulateHoleForPlayers(defId,roundIdx,minHole,toSim);
+    showToast(`Simulated hole ${minHole+1} for ${idxs.length} group(s) (${toSim.length} players).`);
+    if(PLAY_UI.selectedPlayerId&&inst.rounds[roundIdx].scores[PLAY_UI.selectedPlayerId][PLAY_UI.holeIdx]!=null){
+      const next=nextOpenHoleIdx(inst,roundIdx,PLAY_UI.selectedPlayerId);
+      if(next===-1){PLAY_UI.selectedPlayerId=null;setPlayHoleState(PLAY_UI.selectedPlayerId,null);}
+      else{PLAY_UI.holeIdx=next;const st=newHoleState(def.holes[next]);st._forHoleIdx=next;setPlayHoleState(PLAY_UI.selectedPlayerId,st);}
+    }
+    renderTournament();
+  });
+
+  // Sim: full round for MULTIPLE selected groups at once
+  document.getElementById('sim-multi-group-round-btn')?.addEventListener('click',()=>{
+    const idxs=PLAY_UI.multiGroupIdxs&&PLAY_UI.multiGroupIdxs.size?[...PLAY_UI.multiGroupIdxs]:[activeGroupIdx];
+    const pids=idxs.flatMap(gi=>(groups[gi]||[])).filter(pid=>activePlayersForRound(inst,roundIdx).includes(pid));
+    if(pids.length===0)return;
+    simulateRoundForPlayers(defId,roundIdx,pids);
+    PLAY_UI.selectedPlayerId=null;setPlayHoleState(null,null);
+    showToast(`Simulated full round ${roundIdx+1} for ${idxs.length} group(s) (${pids.length} players).`);
     renderTournament();
   });
 
@@ -2522,8 +2565,8 @@ function renderPlayPanel(defId,roundIdx,lb){
     showToast(`Simulated hole ${minHole+1} for ${toSim.length} players.`);
     if(PLAY_UI.selectedPlayerId&&inst.rounds[roundIdx].scores[PLAY_UI.selectedPlayerId][PLAY_UI.holeIdx]!=null){
       const next=nextOpenHoleIdx(inst,roundIdx,PLAY_UI.selectedPlayerId);
-      if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
-      else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+      if(next===-1){PLAY_UI.selectedPlayerId=null;setPlayHoleState(PLAY_UI.selectedPlayerId,null);}
+      else{PLAY_UI.holeIdx=next;const st=newHoleState(def.holes[next]);st._forHoleIdx=next;setPlayHoleState(PLAY_UI.selectedPlayerId,st);}
     }
     renderTournament();
   });
@@ -2535,8 +2578,8 @@ function renderPlayPanel(defId,roundIdx,lb){
     if(hIdx===-1)return;
     simulateHoleForPlayers(defId,roundIdx,hIdx,[pid]);
     const next=nextOpenHoleIdx(inst,roundIdx,pid);
-    if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;}
-    else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(def.holes[next]);}
+    if(next===-1){PLAY_UI.selectedPlayerId=null;setPlayHoleState(pid,null);}
+    else{PLAY_UI.holeIdx=next;const st=newHoleState(def.holes[next]);st._forHoleIdx=next;setPlayHoleState(pid,st);}
     showToast(`Simulated hole ${hIdx+1} for ${getPlayer(pid).name}.`);
     renderTournament();
   });
@@ -2545,7 +2588,7 @@ function renderPlayPanel(defId,roundIdx,lb){
   document.getElementById('sim-all-round-btn').addEventListener('click',()=>{
     const pendingNow=activePlayersForRound(inst,roundIdx);
     simulateRoundForPlayers(defId,roundIdx,pendingNow);
-    PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;
+    PLAY_UI.selectedPlayerId=null;setPlayHoleState(null,null);
     showToast(`Simulated full round ${roundIdx+1} for all ${pendingNow.length} players.`);
     renderTournament();
   });
@@ -2567,7 +2610,13 @@ function renderPlayPanel(defId,roundIdx,lb){
 function selectPlayerForPlay(defId,roundIdx,pid){
   const inst=getInstance(defId);const holeIdx=nextOpenHoleIdx(inst,roundIdx,pid);
   PLAY_UI.selectedPlayerId=pid;PLAY_UI.holeIdx=holeIdx;
-  PLAY_UI.holeState=newHoleState(getDef(defId).holes[holeIdx]);
+  // Resume this player's in-progress shots for the current hole if we have
+  // them cached (they were mid-hole when we tabbed away to another player
+  // in the group) — otherwise this is a fresh hole for them, start clean.
+  const cached=PLAY_UI.holeStates[pid];
+  const state=(cached&&cached._forHoleIdx===holeIdx)?cached:newHoleState(getDef(defId).holes[holeIdx]);
+  state._forHoleIdx=holeIdx;
+  setPlayHoleState(pid,state);
   renderTournament();
 }
 
@@ -2616,8 +2665,13 @@ function renderHoleControl(defId,roundIdx,pid){
 function holeResultWord(strokes,par){const d=strokes-par;if(d<=-3)return'Albatross+';if(d===-2)return'Eagle';if(d===-1)return'Birdie';if(d===0)return'Par';if(d===1)return'Bogey';if(d===2)return'Double Bogey';return`+${d}`;}
 function advanceAfterHole(defId,roundIdx,pid){
   const inst=getInstance(defId);const next=nextOpenHoleIdx(inst,roundIdx,pid);
-  if(next===-1){PLAY_UI.selectedPlayerId=null;PLAY_UI.holeState=null;showToast(`${getPlayer(pid).name} signs for their round.`);}
-  else{PLAY_UI.holeIdx=next;PLAY_UI.holeState=newHoleState(getDef(defId).holes[next]);}
+  if(next===-1){PLAY_UI.selectedPlayerId=null;setPlayHoleState(pid,null);showToast(`${getPlayer(pid).name} signs for their round.`);}
+  else{
+    PLAY_UI.holeIdx=next;
+    const state=newHoleState(getDef(defId).holes[next]);
+    state._forHoleIdx=next;
+    setPlayHoleState(pid,state);
+  }
   renderTournament();
 }
 
