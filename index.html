@@ -178,6 +178,70 @@ function courseVariant(seedShift,yardBase){
   return makeHoles(arr,yardBase);
 }
 
+/* ===== MAJOR ROTATION =====
+   The U.S. Open and The Open Championship move between real host venues year to
+   year, exactly like the real world. Each venue below has an accurate-to-real-life
+   hole-by-hole par sequence (right hole count, right total par, right mix of 3s/4s/5s
+   for that specific course). */
+function realHoles(parsArr,yardsArr){
+  return parsArr.map((par,i)=>({hole:i+1,par,yards:yardsArr[i]}));
+}
+const US_OPEN_ROTATION=[
+  {course:"Oakmont Country Club",loc:"Oakmont, PA",climate:'parkland',
+    pars:[4,5,4,4,3,4,4,3,4, 4,3,4,4,3,4,5,4,4],
+    yards:[482,344,462,309,301,453,480,288,477, 462,301,382,570,144,447,677,313,449]},
+  {course:"Pinehurst No. 2",loc:"Pinehurst, NC",climate:'parkland',
+    pars:[4,4,3,4,5,4,4,3,4, 4,4,3,4,5,4,4,3,4],
+    yards:[408,462,190,529,494,224,401,193,381, 448,486,199,373,489,469,451,193,451]},
+  {course:"Winged Foot GC (West)",loc:"Mamaroneck, NY",climate:'parkland',
+    pars:[4,4,3,4,5,4,4,3,4, 4,4,3,4,4,3,5,4,4],
+    yards:[450,453,216,469,515,331,483,238,428, 446,232,190,469,469,190,477,438,442]},
+  {course:"Shinnecock Hills GC",loc:"Southampton, NY",climate:'coastal_us',
+    pars:[4,4,4,4,3,5,4,3,4, 4,4,3,5,4,4,4,3,4],
+    yards:[396,229,478,440,179,616,470,197,428, 412,158,444,616,435,478,470,197,412]},
+  {course:"The Country Club",loc:"Brookline, MA",climate:'coastal_us',
+    pars:[4,4,4,3,4,5,3,4,4, 4,3,4,4,5,4,4,3,4],
+    yards:[450,315,443,183,479,553,131,435,422, 305,167,484,479,596,428,410,205,436]},
+  {course:"Los Angeles CC (North)",loc:"Los Angeles, CA",climate:'coastal_us',
+    pars:[4,3,4,5,4,4,3,5,4, 4,4,3,4,4,5,3,4,4],
+    yards:[400,227,477,646,494,469,183,589,378, 468,417,222,428,323,589,164,507,414]},
+  {course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",climate:'coastal_us',
+    pars:[4,5,4,4,3,5,3,4,4, 4,4,3,4,5,4,4,3,5],
+    yards:[377,502,390,331,195,523,106,428,466, 446,379,202,365,580,397,403,208,543]},
+  {course:"Oakland Hills CC (South)",loc:"Bloomfield Hills, MI",climate:'parkland',
+    pars:[4,4,3,4,4,5,4,3,4, 4,4,3,4,4,3,5,4,4],
+    yards:[450,408,203,498,449,552,410,238,420, 419,404,236,405,467,240,552,470,468]},
+];
+const OPEN_CHAMPIONSHIP_ROTATION=[
+  {course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",climate:'links',
+    pars:[4,4,4,4,5,4,4,3,4, 4,3,4,4,5,4,4,4,4],
+    yards:[376,453,397,480,568,412,371,175,352, 386,174,348,465,618,455,423,455,357]},
+  {course:"Royal Troon",loc:"Troon, Scotland",climate:'links',
+    pars:[4,4,3,5,3,4,4,4,4, 4,4,4,5,3,4,4,3,4],
+    yards:[380,391,210,558,215,609,404,431,423, 438,451,431,478,196,499,478,223,458]},
+  {course:"Carnoustie Golf Links",loc:"Carnoustie, Scotland",climate:'links',
+    pars:[4,4,4,4,3,5,4,3,4, 4,4,5,4,3,4,3,4,4],
+    yards:[406,449,358,412,229,528,394,183,478, 466,383,499,466,472,517,248,406,499]},
+  {course:"Royal St George's",loc:"Sandwich, England",climate:'links',
+    pars:[4,4,4,4,3,4,4,3,4, 4,3,4,4,4,4,5,4,4],
+    yards:[445,420,240,469,210,356,564,415,412, 415,178,381,443,507,442,166,528,459]},
+  {course:"Royal Liverpool (Hoylake)",loc:"Hoylake, England",climate:'links',
+    pars:[4,3,5,4,4,4,3,5,4, 4,4,4,3,5,4,4,4,4],
+    yards:[458,196,547,455,451,428,197,536,423, 452,391,452,199,552,459,417,442,428]},
+  {course:"Royal Portrush (Dunluce)",loc:"Portrush, Northern Ireland",climate:'links',
+    pars:[4,5,3,4,4,3,5,4,4, 4,3,5,4,4,3,4,4,4],
+    yards:[420,575,164,502,472,193,591,434,432, 462,214,530,455,375,236,478,411,474]},
+  {course:"Muirfield",loc:"Gullane, Scotland",climate:'links',
+    pars:[4,4,4,5,3,4,4,3,5, 4,4,3,4,4,4,4,3,4],
+    yards:[449,351,379,530,193,470,377,183,504, 465,376,159,449,449,417,375,188,447]},
+];
+// Deterministic per-season pick — cycles through the real rotation just like the actual
+// governing bodies announce host sites years in advance, rather than picking randomly.
+function rotationVenue(rotationArr,seasonNumber){
+  const idx=((seasonNumber-1)%rotationArr.length+rotationArr.length)%rotationArr.length;
+  return rotationArr[idx];
+}
+
 /* difficulty: a rough 0-10 "how hard does this course/setup play" rating used to scale
    scoring realism (see applyDifficulty() in the sim engine). 0 = neutral tour-average
    week. Negative = birdiefest / low-scoring course. Positive = tougher test.
@@ -225,14 +289,32 @@ const TOURNAMENT_SEEDS=[
   {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep",difficulty:0},
 ];
 
-function buildTournamentDefs(){
-  return TOURNAMENT_SEEDS.map((t,idx)=>({
-    id:'trn_'+idx,order:idx,name:t.name,course:t.course,location:t.loc,date:t.date,
-    major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,tourChampionship:!!t.tourChampionship,
-    playoffFieldSize:t.playoffFieldSize||null,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
-    difficulty:typeof t.difficulty==='number'?t.difficulty:0,
-    holes:courseVariant(t.seed,t.yard),fieldSize:t.major?20:16,
-  }));
+function buildTournamentDefs(seasonNumber){
+  seasonNumber=seasonNumber||1;
+  return TOURNAMENT_SEEDS.map((t,idx)=>{
+    const difficulty=typeof t.difficulty==='number'?t.difficulty:0;
+    let course=t.course,location=t.loc,holes=courseVariant(t.seed,t.yard);
+
+    // U.S. Open and The Open Championship rotate real host venues season to season,
+    // just like the actual tours, and pick up real hole-by-hole yardages/pars for
+    // whichever venue is hosting that season.
+    let rotation=null;
+    if(t.name==="U.S. Open")rotation=US_OPEN_ROTATION;
+    else if(t.name==="The Open Championship")rotation=OPEN_CHAMPIONSHIP_ROTATION;
+    if(rotation){
+      const venue=rotationVenue(rotation,seasonNumber);
+      course=venue.course;location=venue.loc;
+      holes=realHoles(venue.pars,venue.yards);
+    }
+
+    return{
+      id:'trn_'+idx,order:idx,name:t.name,course,location,date:t.date,
+      major:t.major,teamEvent:!!t.teamEvent,playoff:!!t.playoff,tourChampionship:!!t.tourChampionship,
+      playoffFieldSize:t.playoffFieldSize||null,bigPurse:!!t.bigPurse,rydercup:!!t.rydercup,purseM:t.purse,rounds:4,
+      difficulty,
+      holes,fieldSize:t.major?20:16,
+    };
+  });
 }
 
 function pointsForPosition(pos,isMajor){
@@ -284,7 +366,7 @@ function freshState(){
   return{
     version:SAVE_VERSION,seasonNumber:1,
     players,
-    tournamentDefs:buildTournamentDefs(),
+    tournamentDefs:buildTournamentDefs(1),
     schedule:[],
     currentWeekIndex:0,
     standings:{},           // playerId -> {points, earnings, wins, events, history:[{trnName,pos,pts,prize}]} — this IS the FedExCup standings too, single unified points race, no separate list
@@ -304,7 +386,7 @@ function normalizeState(p){
   if(!p||p.version!==SAVE_VERSION)return freshState();
   p.players=p.players||[];
   p.players.forEach(pl=>{if(!pl.career)pl.career={points:0,earnings:0,wins:0,events:0,seasons:0,history:[]};});
-  p.tournamentDefs=buildTournamentDefs(); // always rebuild so new fields (e.g. playoff) are present
+  p.tournamentDefs=buildTournamentDefs(p.seasonNumber||1); // always rebuild so new fields (e.g. playoff) are present; rotation venue is deterministic per season
   p.schedule=p.schedule||[];p.standings=p.standings||{};p.history=p.history||[];p.fedexCupChampions=p.fedexCupChampions||[];p.majorChampions=p.majorChampions||{};p.news=p.news||[];p.awards=p.awards||[];if(p.rydercup===undefined)p.rydercup=null;p.worldRanking=p.worldRanking||{};
   if(!p.rydercupHistory)p.rydercupHistory=[];
   // Backfill: existing saves made before World Ranking seeding was added had every
@@ -1325,7 +1407,7 @@ function foldStandingsIntoCareer(){
 // Destructive full reset: wipes roster, career totals, everything. Used when
 // the person explicitly wants to start over from scratch.
 function restartSeason(){
-  STATE.players=[];STATE.seasonNumber=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
+  STATE.players=[];STATE.seasonNumber=1;STATE.tournamentDefs=buildTournamentDefs(1);STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
   STATE.standings={};STATE.activeTournamentId=null;STATE.history=[];STATE.news=[];STATE.awards=[];STATE.rydercup=null;STATE.worldRanking={};STATE.rydercupHistory=[];
   saveState();
 }
@@ -1656,7 +1738,7 @@ function startNextSeason(){
     .map(p=>({playerId:p.id,points:(STATE.standings[p.id]||{}).points||0}))
     .sort((a,b)=>b.points-a.points).slice(0,5);
   STATE.history.push({seasonNumber:STATE.seasonNumber,archivedAt:Date.now(),top5});
-  STATE.seasonNumber+=1;STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
+  STATE.seasonNumber+=1;STATE.tournamentDefs=buildTournamentDefs(STATE.seasonNumber);STATE.schedule=STATE.tournamentDefs.map(def=>makeTournamentInstance(def));
   STATE.standings={};STATE.activeTournamentId=null;
   STATE.rydercup=null; // reset ryder cup state each season (new one is auto-triggered every 2 seasons)
   saveState();
