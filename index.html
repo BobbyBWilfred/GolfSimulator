@@ -656,6 +656,15 @@ function overallOf(attrs){
   const w={power:0.16,accuracy:0.18,irons:0.22,short:0.18,putting:0.18,clutch:0.08};
   let s=0;ATTRS.forEach(a=>s+=attrs[a.key]*w[a.key]);return Math.round(s);
 }
+/* Tier classification requested for the roster: elite (83+), tour-average (79+),
+   and replacement-level (74+) bands, matching the three anchor groups the shot
+   engine's sub-stats (putting/GIR/driving) were validated against. */
+function tierOf(overall){
+  if(overall>=83)return{label:'Tier 1',sub:'Elite (83+)',color:'var(--turf-600)'};
+  if(overall>=79)return{label:'Tier 2',sub:'Tour Avg (79+)',color:'var(--board-amber)'};
+  if(overall>=74)return{label:'Tier 3',sub:'Card Holder (74+)',color:'var(--ink-500)'};
+  return{label:'Unranked',sub:'Below 74',color:'var(--flag-red-dim)'};
+}
 
 
 
@@ -780,11 +789,21 @@ function chooseShotType(hs){
    Net effect: at any given course toughness, par-3/4/5 scoring now moves
    together and lands on realistic real-world averages instead of one par
    type being wildly over- or under-tuned relative to the others. */
+/* Re-calibrated Nov-2026 pass: the shot engine below was rebuilt so every sub-stat
+   (putting make% by distance, GIR% by approach distance, driving/fairway%) is
+   anchored to real PGA Tour 2025-season averages instead of just the final score.
+   Because that made the engine noticeably harder (real GIR/putting are both lower
+   than the old flat-bucket model), this table was re-derived by binary-searching,
+   per par-type and per anchor, the raw engine-difficulty value that reproduces the
+   same real-world scoring targets as before — so final scoring stays realistic
+   while the components that produce it now also check out individually:
+     x=0 softest tour stop, x=1 average PGA Tour week (par3 3.06/par4 4.03/par5 4.63),
+     x=2 Players/Memorial-tough, x=3 U.S. Open/Oakmont-hard (par3 3.22/par4 4.26/par5 4.85). */
 const PAR_DIFFICULTY_TABLE=[
-  {x:0,d3:0.30, d4:2.45,d5:2.85}, // softest tour stops (Kapalua/Innisbrook tier) — birdiefest but re-tuned against full 4-round/cut simulation, not just single-hole averages, to avoid unrealistic -30+ winning scores
-  {x:1,d3:0.34, d4:2.49,d5:2.96}, // average PGA Tour week
-  {x:2,d3:0.64, d4:2.92,d5:3.37}, // tough setup (Players/Memorial tier)
-  {x:3,d3:1.07, d4:3.66,d5:3.80}, // U.S. Open / Oakmont-hard
+  {x:0,d3:-2.116,d4:1.857,d5:1.236}, // softest tour stops — birdiefest
+  {x:1,d3:-1.192,d4:1.829,d5:2.291}, // average PGA Tour week
+  {x:2,d3:-0.484,d4:2.137,d5:3.026}, // tough setup (Players/Memorial tier)
+  {x:3,d3:-0.054,d4:2.397,d5:3.569}, // U.S. Open / Oakmont-hard
 ];
 function parDifficultyFor(baseDifficulty,par){
   const key='d'+(par<=3?3:par>=5?5:4);
@@ -806,32 +825,65 @@ function parDifficultyFor(baseDifficulty,par){
    player skill so that course setup — not just attributes — governs realistic scoring.
    Higher difficulty = smaller fairways/greens to work with, thicker rough, faster/firmer
    greens that are harder to convert putts on and easier to run putts past the hole. */
+/* Generic anchor-table interpolator: piecewise-linear between real-world data
+   points, with a shallow linear extrapolation past the last anchor. Used to
+   keep every distance-based percentage (putting, GIR, driving) tied directly
+   to a real PGA Tour stat rather than one flat formula per bucket. */
+function interp(anchors,x){
+  if(x<=anchors[0][0])return anchors[0][1];
+  for(let i=0;i<anchors.length-1;i++){
+    const a=anchors[i],b=anchors[i+1];
+    if(x>=a[0]&&x<=b[0]){const f=(x-a[0])/(b[0]-a[0]);return a[1]+f*(b[1]-a[1]);}
+  }
+  const last=anchors[anchors.length-1],prev=anchors[anchors.length-2];
+  const slope=(last[1]-prev[1])/(last[0]-prev[0]);
+  return Math.max(0.005,last[1]+slope*(x-last[0]));
+}
+/* GIR% by approach distance (yards), from fairway, at tour-average iron play —
+   PGA Tour 2025 "Approach the Green" distance-bucket averages. */
+const GIR_ANCHORS=[[30,0.97],[50,0.94],[75,0.90],[100,0.85],[125,0.80],[150,0.735],
+  [175,0.655],[200,0.565],[225,0.47],[250,0.38],[300,0.24]];
+function girK(d){ if(d<=100)return 0.85; if(d<=150)return 0.65; if(d<=200)return 0.45; return 0.30;}
+/* Average proximity-to-hole (ft) once a green is hit, by distance — PGA Tour
+   "Proximity to Hole" averages. */
+const PROX_ANCHORS=[[30,8],[50,10],[75,13],[100,18],[125,22],[150,27],[175,32],[200,37],[225,42],[250,47],[300,55]];
 function resolveFullSwing(hs,attrs,shotType,difficulty){
   difficulty=difficulty||0;
   const{power,accuracy,irons,clutch}=attrs;let res={};
   if(shotType==='tee_long'){
     const distPotential=250+(power/99)*100;const distActual=clamp(gaussian(distPotential,14),190,380);
-    const accRoll=Math.random()*100;const missThreshold=clamp(30+(accuracy/99)*55-difficulty*4,10,85);
-    let newLie='fairway';
-    if(accRoll>missThreshold+15)newLie='rough';if(accRoll>missThreshold+38)newLie='recovery';
+    // fairwayPct anchored so accuracy 73→~46% and accuracy 85→~68% fairways hit,
+    // matching PGA Tour driving-accuracy range (tour avg ~58-60%, leaders ~68-72%,
+    // bombers ~44-48%).
+    const fairwayPct=clamp(31+(accuracy-73)*1.833-difficulty*4,5,90)+15;
+    const accRoll=Math.random()*100;let newLie='fairway';
+    if(accRoll>fairwayPct)newLie='rough';
+    if(accRoll>fairwayPct+30)newLie='recovery';
     hs.remaining=clamp(hs.remaining-distActual,0,9999);hs.lie=hs.remaining<=0?'green':newLie;
     res.text=`Drive ${Math.round(distActual)}y — ${newLie==='fairway'?'finds the fairway':newLie==='rough'?'drifts into the rough':'leaks into trouble'}.`;
   } else {
-    const lieMult=(hs.lie==='fairway'?1.0:hs.lie==='rough'?0.85:hs.lie==='recovery'?0.6:0.9)*(1-difficulty*0.03);
-    const skillP=clamp((irons/99)*lieMult,0.15,1.2);
-    const distPotential=hs.remaining*(0.93+skillP*0.1);
-    const distActual=clamp(gaussian(distPotential,18+(1-skillP)*22),hs.remaining*0.55,hs.remaining*1.08);
-    const leftover=clamp(hs.remaining-distActual,0,9999);hs.remaining=leftover;
-    const qualityRoll=Math.random()*100+(irons-50)*0.5+(clutch-50)*0.15-difficulty*8;
-    let newLie;
-    if(leftover<=0)newLie='green';
-    else if(qualityRoll>70)newLie='fairway';else if(qualityRoll>40)newLie='rough';
-    else if(qualityRoll>25)newLie='sand';else newLie='recovery';
-    hs.lie=newLie;
-    if(leftover<=0){
-      const closeness=clamp(gaussian(28-skillP*20+difficulty*3.5,12),2,95);hs.puttDistanceFt=Math.round(closeness);hs.lie='green';
+    const lieFactor=(hs.lie==='fairway'?1.0:hs.lie==='rough'?0.78:hs.lie==='recovery'?0.5:0.6);
+    const skillP=clamp(irons/99,0.4,1.1);
+    const dist=hs.remaining;
+    let girChance=(interp(GIR_ANCHORS,dist)+(skillP-0.79)*girK(dist))*lieFactor-difficulty*0.035;
+    girChance=clamp(girChance,0.01,0.98);
+    if(Math.random()<girChance){
+      hs.remaining=0;hs.lie='green';
+      const proxBase=interp(PROX_ANCHORS,dist)*(1-(skillP-0.79)*0.5)+difficulty*2.5;
+      hs.puttDistanceFt=clamp(Math.round(gaussian(proxBase,proxBase*0.5+1)),1,90);
       res.text=`Approach finds the green, ${hs.puttDistanceFt} ft from the pin.`;
-    }else res.text=`Shot covers ${Math.round(distActual)}y, ${Math.round(leftover)}y remaining, into the ${newLie}.`;
+    } else {
+      const distPotential=dist*(0.90+skillP*0.09);
+      const distActual=clamp(gaussian(distPotential,dist*0.16),dist*0.35,dist*1.15);
+      const leftover=clamp(dist-distActual,dist*0.03,dist*0.9);
+      hs.remaining=leftover;
+      const qualityRoll=Math.random()*100+(irons-50)*0.4-difficulty*8;
+      let newLie;
+      if(qualityRoll>62)newLie='fairway';else if(qualityRoll>32)newLie='rough';
+      else if(qualityRoll>20)newLie='sand';else newLie='recovery';
+      hs.lie=newLie;
+      res.text=`Shot leaves ${Math.round(leftover)}y remaining, into the ${newLie}.`;
+    }
   }
   return res;
 }
@@ -853,23 +905,27 @@ function resolveBunker(hs,attrs,difficulty){
   hs.remaining=0;hs.lie='green';hs.puttDistanceFt=Math.round(closeness);return{text:`Splashes out to ${hs.puttDistanceFt} ft.`};
 }
 
+/* Make% by distance, PGA Tour 2025-season averages (Broadie/PGA Tour putting
+   stats): ~99% @2ft, 96% @3ft, 88% @4ft, 77% @5ft, 56% @8ft, 40% @10ft, 23%
+   @15ft, 15% @20ft, 12.4% @25ft, 7% @30ft, tailing to ~1% by 90ft. A tour-average
+   putter (rating ~79) reproduces these numbers directly; better/worse putters
+   shift off that baseline via puttK(), which lets skill matter most inside 20ft
+   (where tour pros actually separate from each other) and matter less on long
+   lag putts (which are luck-dominated for everyone).*/
+const PUTT_ANCHORS=[[1,0.999],[2,0.99],[3,0.96],[4,0.88],[5,0.77],[6,0.68],[8,0.56],
+  [10,0.40],[15,0.23],[20,0.15],[25,0.1243],[30,0.07],[40,0.04],[50,0.03],[60,0.02],[90,0.008]];
+function puttK(d){ if(d<=5)return 0.55; if(d<=10)return 0.45; if(d<=20)return 0.34; if(d<=35)return 0.22; return 0.12;}
 function resolvePutt(hs,attrs,difficulty){
   difficulty=difficulty||0;
   const skillP=attrs.putting/99;const clutchP=attrs.clutch/99;const distFt=hs.puttDistanceFt;
-  let makeChance;
-  if(distFt<=2)makeChance=0.93+skillP*0.06;
-  else if(distFt<=5)makeChance=0.55+skillP*0.35;
-  else if(distFt<=10)makeChance=0.25+skillP*0.4;
-  else if(distFt<=20)makeChance=0.08+skillP*0.27;
-  else if(distFt<=35)makeChance=0.02+skillP*0.12;
-  else makeChance=0.01+skillP*0.05;
-  makeChance+=((clutchP-0.5)*0.05)-difficulty*0.028;makeChance=clamp(makeChance,0.01,0.97);
+  let makeChance=interp(PUTT_ANCHORS,distFt)+(skillP-0.79)*puttK(distFt)+(clutchP-0.5)*0.03-difficulty*0.02;
+  makeChance=clamp(makeChance,0.005,0.995);
   if(Math.random()<makeChance){
     hs.holedOut=true;hs.lie='hole';
     const flavor=distFt>20?'Bomb from distance — in the cup!':distFt>8?'Rolls in!':'Good putt, in the heart.';
     return{text:flavor,holed:true};
   }
-  const leaveBase=(distFt>20?distFt*0.22:distFt>8?distFt*0.28:distFt*0.35)*(1+difficulty*0.09);
+  const leaveBase=(distFt>20?distFt*0.20:distFt>8?distFt*0.26:distFt*0.32)*(1+difficulty*0.09);
   const leave=clamp(gaussian(leaveBase,leaveBase*0.4+0.5),0.3,distFt*0.95);
   hs.puttDistanceFt=Math.round(leave*10)/10;
   return{text:`Just slides by, ${hs.puttDistanceFt} ft left.`};
@@ -1201,6 +1257,7 @@ function rosterCardHTML(p){
         <div style="font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:${form.color};letter-spacing:0.04em;white-space:nowrap;" title="Effective rating right now: ${effOv}">${form.label}</div>
       </div>
     </div>
+    <div style="margin-top:6px;"><span style="font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.04em;text-transform:uppercase;color:${tierOf(ov).color};border:1px solid ${tierOf(ov).color};border-radius:3px;padding:1px 6px;">${tierOf(ov).label} · ${tierOf(ov).sub}</span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;margin-top:10px;">
       ${ATTRS.map(a=>`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--ink-700);"><span>${a.label.split(' ')[0]}</span><span class="num">${p.attrs[a.key]}</span></div>`).join('')}
     </div>
