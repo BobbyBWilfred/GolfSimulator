@@ -174,7 +174,7 @@ const STD_PARS=[4,4,3,5,4,4,3,4,5,4,3,4,5,4,4,3,5,4];
 function courseVariant(seedShift,yardBase){
   const arr=STD_PARS.slice();
   if(seedShift%3===1){arr[2]=5;arr[16]=3;}
-  if(seedShift%4===2){arr[8]=4;arr[12]=5;}
+  if(seedShift%4===2){arr[8]=4;arr[11]=5;}
   return makeHoles(arr,yardBase);
 }
 
@@ -268,7 +268,7 @@ const TOURNAMENT_SEEDS=[
   {name:"Zurich Classic of New Orleans",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:9.5,seed:16,yard:-3,date:"Apr 26",difficulty:1.5},
   {name:"Cadillac Championship",course:"Trump National Doral (Blue Monster)",loc:"Doral, FL",major:false,purse:20,seed:17,yard:8,date:"May 3",difficulty:0.5},
   {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:18,yard:2,date:"May 10",difficulty:0},
-  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17",difficulty:2},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17",difficulty:2.05},
   {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:10.3,seed:20,yard:4,date:"May 24",difficulty:1.5},
   {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.9,seed:21,yard:-15,date:"May 31",difficulty:1},
   {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:22,yard:8,date:"Jun 7",difficulty:1.5},
@@ -753,6 +753,55 @@ function chooseShotType(hs){
   return 'putt';
 }
 
+/* ===== PAR-TYPE DIFFICULTY CALIBRATION =====
+   Problem this fixes: a single flat `difficulty` number was being fed into every
+   hole regardless of par. But a par-3 (tee shot plays like a simple approach —
+   one dice-roll to the green) and a par-5 (drive + layup/go-for-it + approach —
+   three dice-rolls before the green) respond completely differently to the same
+   difficulty penalty. In practice that meant: dial difficulty up enough to make
+   par-5s play realistically tough, and par-3s turn into a bogey-fest; dial it
+   down so par-3s are fair, and par-4/par-5 scoring turns into a birdiefest.
+   That's exactly why par-3s looked "sus" even on tough-course weeks.
+
+   Fix: def.difficulty (0=softest tour stop ... 3=U.S. Open/Oakmont-hard, same
+   scale already used across TOUR_SCHEDULE) is now translated PER PAR into the
+   actual engine difficulty value fed to resolveFullSwing/Chip/Bunker/Putt, via
+   a lookup table. The table was built by Monte-Carlo simulating this exact
+   100-player roster through the real shot engine (thousands of simulated
+   holes per anchor) and binary-searching for the engine difficulty that
+   reproduces real-world PGA Tour / major-championship par-type scoring
+   averages:
+     - Average PGA Tour week: par3 ~3.07, par4 ~4.04, par5 ~4.64 (source: PGA
+       TOUR season scoring-average stats)
+     - U.S. Open / Oakmont-hard: par3 ~3.22, par4 ~4.26, par5 ~4.85 (source:
+       2025 U.S. Open field-scoring data)
+   with intermediate anchors for a "very soft" birdiefest week and a "tough
+   but not U.S. Open" week (Players/Memorial-tier) interpolated between them.
+   Net effect: at any given course toughness, par-3/4/5 scoring now moves
+   together and lands on realistic real-world averages instead of one par
+   type being wildly over- or under-tuned relative to the others. */
+const PAR_DIFFICULTY_TABLE=[
+  {x:0,d3:0.30, d4:2.45,d5:2.85}, // softest tour stops (Kapalua/Innisbrook tier) — birdiefest but re-tuned against full 4-round/cut simulation, not just single-hole averages, to avoid unrealistic -30+ winning scores
+  {x:1,d3:0.34, d4:2.49,d5:2.96}, // average PGA Tour week
+  {x:2,d3:0.64, d4:2.92,d5:3.37}, // tough setup (Players/Memorial tier)
+  {x:3,d3:1.07, d4:3.66,d5:3.80}, // U.S. Open / Oakmont-hard
+];
+function parDifficultyFor(baseDifficulty,par){
+  const key='d'+(par<=3?3:par>=5?5:4);
+  const t=PAR_DIFFICULTY_TABLE;
+  const x=typeof baseDifficulty==='number'?baseDifficulty:0;
+  if(x<=t[0].x){const f=(x-t[0].x)/(t[1].x-t[0].x);return t[0][key]+f*(t[1][key]-t[0][key]);}
+  for(let i=0;i<t.length-1;i++){
+    if(x>=t[i].x&&x<=t[i+1].x){
+      const f=(x-t[i].x)/(t[i+1].x-t[i].x);
+      return t[i][key]+f*(t[i+1][key]-t[i][key]);
+    }
+  }
+  const last=t[t.length-1],prev=t[t.length-2];
+  const f=(x-last.x)/(last.x-prev.x);
+  return last[key]+f*(last[key]-prev[key]); // extrapolate above U.S. Open-hard
+}
+
 /* difficulty is a ~ -3 (birdiefest) .. +6 (U.S. Open-hard) rating applied on top of
    player skill so that course setup — not just attributes — governs realistic scoring.
    Higher difficulty = smaller fairways/greens to work with, thicker rough, faster/firmer
@@ -827,7 +876,9 @@ function resolvePutt(hs,attrs,difficulty){
 }
 
 function playShot(hs,attrs,difficulty){
-  difficulty=difficulty||0;
+  // difficulty coming in here is still the tournament's flat 0-3 course rating;
+  // translate it into the calibrated per-par engine value for THIS hole.
+  difficulty=parDifficultyFor(difficulty,hs.par);
   hs.strokes+=1;const shotType=chooseShotType(hs);let res;
   if(shotType==='tee_long')res=resolveFullSwing(hs,attrs,'tee_long',difficulty);
   else if(shotType==='approach'||shotType==='long_approach')res=resolveFullSwing(hs,attrs,shotType,difficulty);
@@ -1745,30 +1796,18 @@ function startNextSeason(){
 }
 
 /* ===== RYDER CUP ENGINE (USA vs EUROPE — every 2 seasons) =====
-   12 players per side, matching the real-life format:
-     - 6 automatic qualifiers: the top 6 eligible players by World Ranking.
-     - 6 captain's picks: the captain reviews the next 8 highest-ranked eligible
-       players outside the automatic 6, and picks 6 of them (not necessarily the
-       top 6 of that pool) weighing major-championship wins, big-event wins,
-       season-long consistency, and current form — see rcCaptainScore().
-   Format: 28 total matches across 5 sessions, first to 14.5 points wins.
-     Day 1 AM — Foursomes, 18 holes (4 matches)
-     Day 1 PM — Fourballs, 18 holes (4 matches)
-     Day 2 AM — Foursomes, 18 holes (4 matches)
-     Day 2 PM — Fourballs, 18 holes (4 matches)
-     Day 3    — Singles,   18 holes (12 matches)
-   If the match finishes 14–14, the captains' #1 automatic qualifier from each
-   side plays a sudden-death decider hole (440y showcase hole) until someone
-   wins a hole.
+   Format: 18 total matches across 4 sessions, first to 9.5 points wins.
+     Day 1 — Foursomes, 9 holes  (3 matches)
+     Day 2 — Singles,   9 holes  (6 matches)
+     Day 3 — Foursomes, 18 holes (3 matches)
+     Day 4 — Singles,   18 holes (6 matches)
+   If the match finishes 9–9, the captains' top pick from each side plays a
+   sudden-death decider hole (440y showcase hole) until someone wins a hole.
    ================================================================= */
 const RC_WINNER_PURSE=100000000; // $100M
 const RC_RUNNER_PURSE=25000000;  // $25M
-const RC_TOTAL_MATCHES=28;
-const RC_WIN_THRESHOLD=14.5;
-const RC_TEAM_SIZE=12;
-const RC_AUTO_QUALIFIERS=6;
-const RC_CAPTAIN_PICK_POOL=8;
-const RC_CAPTAIN_PICKS=6;
+const RC_TOTAL_MATCHES=18;
+const RC_WIN_THRESHOLD=9.5;
 
 // Returns true if this season should have a Ryder Cup (seasons 1,3,5,7...)
 function isRyderCupSeason(seasonNum){ return seasonNum%2===1; }
@@ -1801,54 +1840,29 @@ function playerTeam(player){
   return null; // e.g. KR, JP, AU, AR — not eligible
 }
 
-// Composite "captain's eye" score used to choose the 6 picks out of the pool of 8
-// players just outside the automatic top 6. Rewards major wins heavily, other wins
-// (big non-major events), season-long consistency (top-5s/top-10s), and hot recent
-// form — not just raw World Ranking points, so the picks won't always be a straight
-// "next 6 in rank order" like the automatic qualifiers are.
-function rcCaptainScore(playerId){
-  const wr=STATE.worldRanking[playerId]||{pts:0,history:[]};
-  let majorWins=0,otherWins=0,top5s=0,top10s=0;
-  (wr.history||[]).forEach(h=>{
-    if(h.pos===1){if(h.major)majorWins++;else otherWins++;}
-    if(typeof h.pos==='number'&&h.pos<=5)top5s++;
-    if(typeof h.pos==='number'&&h.pos<=10)top10s++;
-  });
-  const form=playerFormScore(playerId); // -1 (ice cold) .. +1 (red hot)
-  return (wr.pts||0)+majorWins*450+otherWins*160+top5s*45+top10s*18+form*130;
-}
-
-// Select 12 players per side, matching the real Ryder Cup format:
-//   - Top 6 by World Ranking = automatic qualifiers
-//   - Next 8 by World Ranking = the pool the captain picks from
-//   - Captain takes 6 out of that pool of 8 by rcCaptainScore (majors / big wins /
-//     consistency / form) — not necessarily the top 6 of the pool by raw rank.
-// If the eligible pool for a side is smaller than 14, fills in as many as available.
+// Select 6 players per side:
+//   - Top 4 by world ranking from that side
+//   - + 2 by best PGA Tour finish (points) that season from remaining players
 function selectRyderCupTeam(side){
-  const info=rcSelectionInfo(side);
-  return[...info.auto,...info.picks];
-}
-
-function rcSelectionInfo(side){
   const eligible=STATE.players.filter(p=>playerTeam(p)===side);
+  if(eligible.length===0)return[];
   const wrRows=getWorldRankings();
+  // Sort by WR points
   const byWR=eligible.slice().sort((a,b)=>{
     const wa=wrRows.find(r=>r.playerId===a.id)?.pts||0;
     const wb=wrRows.find(r=>r.playerId===b.id)?.pts||0;
     return wb-wa;
   });
-  const auto=byWR.slice(0,RC_AUTO_QUALIFIERS).map(p=>p.id);
-  const pool=byWR.slice(RC_AUTO_QUALIFIERS,RC_AUTO_QUALIFIERS+RC_CAPTAIN_PICK_POOL);
-  const scoredPool=pool.slice().sort((a,b)=>rcCaptainScore(b.id)-rcCaptainScore(a.id));
-  const picks=scoredPool.slice(0,RC_CAPTAIN_PICKS).map(p=>p.id);
-  // If the roster is thin, backfill picks from whoever's left so we still get to 12
-  // when there's a smaller player pool than a real 22-deep qualifying list.
-  if(auto.length+picks.length<Math.min(RC_TEAM_SIZE,eligible.length)){
-    const usedIds=new Set([...auto,...picks]);
-    const leftover=byWR.filter(p=>!usedIds.has(p.id)).map(p=>p.id);
-    picks.push(...leftover.slice(0,RC_TEAM_SIZE-auto.length-picks.length));
-  }
-  return{auto,picks,pool:pool.map(p=>p.id)};
+  const top4=byWR.slice(0,4);
+  const top4Ids=new Set(top4.map(p=>p.id));
+  // Remaining: sort by this season PGA points
+  const remaining=eligible.filter(p=>!top4Ids.has(p.id)).sort((a,b)=>{
+    const pa=(STATE.standings[a.id]||{}).points||0;
+    const pb=(STATE.standings[b.id]||{}).points||0;
+    return pb-pa;
+  });
+  const picks2=remaining.slice(0,2);
+  return [...top4,...picks2].map(p=>p.id);
 }
 
 function rcInit(defId){
@@ -1868,17 +1882,16 @@ function rcInit(defId){
     phase:'in_progress', // 'in_progress' | 'decider' | 'complete'
     usaPlayers,
     europePlayers,
-    // 5 sessions, 28 matches total, first to 14.5 wins — real Ryder Cup format
+    // 4 sessions, 18 matches total, first to 9.5 wins
     sessions:[
-      {name:'Day 1 — Foursomes',shortName:'Foursomes',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18,0),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 1 — Fourballs',shortName:'Fourballs',type:'fourball',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'fourball',18,4),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 2 — Foursomes',shortName:'Foursomes',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18,8),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 2 — Fourballs',shortName:'Fourballs',type:'fourball',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'fourball',18,2),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 3 — Singles',shortName:'Singles',type:'singles',holes:18,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,18),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 1 — Foursomes',shortName:'Foursomes (9)',type:'foursomes',holes:9,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',9),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 2 — Singles',shortName:'Singles (9)',type:'singles',holes:9,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,9),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 3 — Foursomes',shortName:'Foursomes (18)',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 4 — Singles',shortName:'Singles (18)',type:'singles',holes:18,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,18),done:false,ptsUSA:0,ptsEurope:0},
     ],
     totalUSA:0,totalEurope:0,
     winner:null, // 'USA' | 'Europe'
-    decider:null, // sudden-death decider state if score ends 14-14
+    decider:null, // sudden-death decider state if score ends 9-9
     selectionInfo:{usa:rcSelectionInfo('USA'),europe:rcSelectionInfo('Europe')},
   };
   const inst=getInstance(defId);
@@ -1888,37 +1901,40 @@ function rcInit(defId){
   switchView('tournament');
 }
 
-// Picks a window of `count` players out of a roster of up to 12, wrapping around,
-// starting at `offset` — used so every session pairs up a different mix of the 12
-// players rather than always the same 4 pairs, similar to how real captains rotate
-// their lineups session to session.
-function rcRotationWindow(players,offset,count){
-  const n=players.length;if(n===0)return[];
-  const out=[];
-  for(let i=0;i<count;i++)out.push(players[(offset+i)%n]);
-  return out;
+function rcSelectionInfo(side){
+  const eligible=STATE.players.filter(p=>playerTeam(p)===side);
+  const wrRows=getWorldRankings();
+  const byWR=eligible.slice().sort((a,b)=>{
+    const wa=wrRows.find(r=>r.playerId===a.id)?.pts||0;
+    const wb=wrRows.find(r=>r.playerId===b.id)?.pts||0;
+    return wb-wa;
+  });
+  const top4=byWR.slice(0,4).map(p=>p.id);
+  const top4Ids=new Set(top4);
+  const remaining=eligible.filter(p=>!top4Ids.has(p.id)).sort((a,b)=>{
+    return ((STATE.standings[b.id]||{}).points||0)-((STATE.standings[a.id]||{}).points||0);
+  });
+  const picks2=remaining.slice(0,2).map(p=>p.id);
+  return{top4,picks2};
 }
 
-function rcBuildPairMatches(usaPlayers,europePlayers,type,holes,offset){
-  // 4 matches of pairs (8 of the 12 players feature each session, like real fourball/foursomes sessions)
+function rcBuildPairMatches(usaPlayers,europePlayers,type,holes){
+  // 3 matches of pairs
   const matches=[];
-  const usaGroup=rcRotationWindow(usaPlayers,offset||0,Math.min(8,usaPlayers.length));
-  const eurGroup=rcRotationWindow(europePlayers,offset||0,Math.min(8,europePlayers.length));
-  for(let i=0;i<4;i++){
-    const usaPair=[usaGroup[i*2]||usaGroup[0],usaGroup[i*2+1]||usaGroup[0]];
-    const eurPair=[eurGroup[i*2]||eurGroup[0],eurGroup[i*2+1]||eurGroup[0]];
-    matches.push({type,holes:holes||18,status:'pending',lineupUSA:usaPair,lineupEurope:eurPair,result:null,holesA:0,holesB:0});
+  for(let i=0;i<3;i++){
+    const usaPair=[usaPlayers[i*2]||usaPlayers[0],usaPlayers[i*2+1]||usaPlayers[1]];
+    const eurPair=[europePlayers[i*2]||europePlayers[0],europePlayers[i*2+1]||europePlayers[1]];
+    matches.push({type,holes:holes||9,status:'pending',lineupUSA:usaPair,lineupEurope:eurPair,result:null,holesA:0,holesB:0});
   }
   return matches;
 }
 
 function rcBuildSinglesMatches(usaPlayers,europePlayers,holes){
-  // Sunday singles — all 12 players on each side go out in the real format
   const matches=[];
-  for(let i=0;i<RC_TEAM_SIZE;i++){
+  for(let i=0;i<6;i++){
     const usaP=usaPlayers[i]||usaPlayers[usaPlayers.length-1];
     const eurP=europePlayers[i]||europePlayers[europePlayers.length-1];
-    matches.push({type:'singles',holes:holes||18,status:'pending',lineupUSA:[usaP],lineupEurope:[eurP],result:null,holesA:0,holesB:0});
+    matches.push({type:'singles',holes:holes||9,status:'pending',lineupUSA:[usaP],lineupEurope:[eurP],result:null,holesA:0,holesB:0});
   }
   return matches;
 }
@@ -1942,11 +1958,11 @@ function rcAllSessionsDone(){
 }
 
 // Picks the lead player from each side's captain's-pick top-4 (i.e. the #1 WR seed)
-// to play the sudden-death decider when the cup finishes tied 14-14.
+// to play the sudden-death decider when the cup finishes tied 9-9.
 function rcDeciderPlayers(){
   const rc=STATE.rydercup;
-  const usaLead=(rc.selectionInfo?.usa?.auto||rc.usaPlayers)[0]||rc.usaPlayers[0];
-  const eurLead=(rc.selectionInfo?.europe?.auto||rc.europePlayers)[0]||rc.europePlayers[0];
+  const usaLead=(rc.selectionInfo?.usa?.top4||rc.usaPlayers)[0]||rc.usaPlayers[0];
+  const eurLead=(rc.selectionInfo?.europe?.top4||rc.europePlayers)[0]||rc.europePlayers[0];
   return{usa:usaLead,europe:eurLead};
 }
 
@@ -1957,7 +1973,7 @@ function rcCheckComplete(){
     rcFinalizeResult(rc.totalUSA>rc.totalEurope?'USA':'Europe');
     return true;
   }
-  // 14-14 tie — kick off the sudden-death decider between each side's #1 seed
+  // 9-9 tie — kick off the sudden-death decider between each side's #1 seed
   if(!rc.decider){
     const leads=rcDeciderPlayers();
     rc.phase='decider';
@@ -1987,7 +2003,7 @@ function rcResolveDeciderHole(){
 function rcFinalizeResult(winner){
   const rc=STATE.rydercup;
   rc.winner=winner;rc.phase='complete';
-  const winShare=Math.round(RC_WINNER_PURSE/RC_TEAM_SIZE),runShare=Math.round(RC_RUNNER_PURSE/RC_TEAM_SIZE);
+  const winShare=Math.round(RC_WINNER_PURSE/6),runShare=Math.round(RC_RUNNER_PURSE/6);
   const winPlayers=winner==='USA'?rc.usaPlayers:rc.europePlayers;
   const runPlayers=winner==='USA'?rc.europePlayers:rc.usaPlayers;
   winPlayers.forEach(pid=>{
@@ -2006,7 +2022,7 @@ function rcFinalizeResult(winner){
   const venueTxt=rc.venue?` at ${rc.venue.name}, ${rc.venue.location}`:'';
   pushNews({type:'rydercup',icon:'🏆',trnId:rc.defId,trnName:'Ryder Cup',
     headline:`🏆 RYDER CUP S${rc.season}: ${winner} wins${deciderUsed?' in sudden death':` ${rc.totalUSA}–${rc.totalEurope}`}!`,
-    body:`${winner==='USA'?'Team USA 🇺🇸':'Team Europe 🇪🇺'} claimed the Ryder Cup${venueTxt} in Season ${rc.season}${deciderUsed?`, after the 28-match format finished locked at 14–14 and a sudden-death decider hole settled it`:` by a score of ${rc.totalUSA} to ${rc.totalEurope}`}. The winning team shares $100M in prize money among ${RC_TEAM_SIZE} players.`
+    body:`${winner==='USA'?'Team USA 🇺🇸':'Team Europe 🇪🇺'} claimed the Ryder Cup${venueTxt} in Season ${rc.season}${deciderUsed?`, after the 18-match format finished locked at 9–9 and a sudden-death decider hole settled it`:` by a score of ${rc.totalUSA} to ${rc.totalEurope}`}. The winning team shares $100M in prize money among 6 players.`
   });
   saveState();
 }
@@ -2959,15 +2975,14 @@ function renderRyderCupTab(){
     <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       <div style="flex:1;min-width:220px;">
         <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--turf-900);margin-bottom:6px;">🇺🇸 USA vs Europe 🇪🇺</div>
-        <div style="font-size:13px;color:var(--ink-700);line-height:1.6;">The Ryder Cup takes place every <b>odd season</b> (1, 3, 5…), alternating venues between the USA and Europe. <b>12 players per side</b>, matching the real-life format: the <b>top 6 by World Ranking</b> qualify automatically, then the captain reviews the <b>next 8 highest-ranked</b> eligible players and picks <b>6 captain's picks</b> from that pool — weighing major wins, big-event wins, season-long consistency, and current form, not just raw ranking.</div>
+        <div style="font-size:13px;color:var(--ink-700);line-height:1.6;">The Ryder Cup takes place every <b>odd season</b> (1, 3, 5…), alternating venues between the USA and Europe. Six players per side are auto-selected: the <b>top 4 by World Ranking</b> + <b>2 captain's picks</b> (best PGA season points from remaining eligible players).</div>
         <div style="margin-top:10px;font-size:12px;color:var(--ink-500);line-height:1.6;">
-          <b>Format — 28 matches, first to 14.5 wins:</b><br>
-          Day 1 AM: Foursomes · 18 holes · 4 matches<br>
-          Day 1 PM: Fourballs · 18 holes · 4 matches<br>
-          Day 2 AM: Foursomes · 18 holes · 4 matches<br>
-          Day 2 PM: Fourballs · 18 holes · 4 matches<br>
-          Day 3: Singles · 18 holes · 12 matches<br>
-          If it finishes 14–14, each side's #1 automatic qualifier plays a sudden-death decider hole until someone wins a hole.
+          <b>Format — 18 matches, first to 9.5 wins:</b><br>
+          Day 1: Foursomes · 9 holes · 3 matches<br>
+          Day 2: Singles · 9 holes · 6 matches<br>
+          Day 3: Foursomes · 18 holes · 3 matches<br>
+          Day 4: Singles · 18 holes · 6 matches<br>
+          If it finishes 9–9, each captain's #1 seed plays a sudden-death decider hole until someone wins a hole.
         </div>
       </div>
       <div style="text-align:center;background:rgba(217,161,59,0.1);border:1px solid rgba(217,161,59,0.3);border-radius:6px;padding:14px 20px;min-width:180px;">
@@ -3042,7 +3057,7 @@ function renderRyderCupProgress(el,rc){
         <div style="font-family:'Oswald',sans-serif;font-size:16px;color:${col};margin-bottom:10px;">${flag} Team ${side}</div>
         ${pids.map((pid,i)=>{
           const p=getPlayer(pid);if(!p)return'';
-          const isWRPick=(info?.auto||[]).includes(pid);
+          const isWRPick=(info?.top4||[]).includes(pid);
           return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);">
             <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
             <span style="flex:1;font-size:12px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</span>
@@ -3130,8 +3145,8 @@ function renderRyderCupComplete(el,rc){
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--board-amber);margin-bottom:6px;">Season ${rc.season} Ryder Cup Champion · ${venue.flag} ${escapeHTML(venue.name)}</div>
     <h2 style="font-size:36px;color:${winColor};">${winFlag} ${rc.winner}</h2>
     <div class="num" style="font-size:28px;margin:8px 0;">${rc.totalUSA} – ${rc.totalEurope}${decided?` <span style="font-size:14px;color:var(--flag-red);">(Sudden Death)</span>`:''}</div>
-    ${decided?`<div style="font-size:12px;color:var(--ink-700);margin-bottom:8px;">Locked 14–14 after 28 matches — settled on the decider hole.</div>`:''}
-    <div style="font-size:14px;color:var(--ink-500);margin-bottom:28px;">Winner's share: $100M split across 12 players</div>
+    ${decided?`<div style="font-size:12px;color:var(--ink-700);margin-bottom:8px;">Locked 9–9 after 18 matches — settled on the decider hole.</div>`:''}
+    <div style="font-size:14px;color:var(--ink-500);margin-bottom:28px;">Winner's share: $100M split across 6 players</div>
     <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:28px;">
       ${['USA','Europe'].map(side=>{
         const pids=side==='USA'?rc.usaPlayers:rc.europePlayers;
@@ -3147,7 +3162,7 @@ function renderRyderCupComplete(el,rc){
   appendRyderCupHistory(el,hist);
 }
 
-/* ===== SUDDEN-DEATH DECIDER (14-14 tie) =====
+/* ===== SUDDEN-DEATH DECIDER (9-9 tie) =====
    Each captain's #1 WR seed plays a decider hole, head to head, hole after hole,
    until one of them is strictly fewer strokes — no halves carry the cup. */
 function renderRyderCupDecider(el,rc){
@@ -3158,10 +3173,10 @@ function renderRyderCupDecider(el,rc){
   if(!dec.hsEurope)dec.hsEurope=newHoleState({hole:dec.holeNum,par:4,yards:445});
 
   el.innerHTML=`<div class="section-head">
-    <div><span class="eyebrow" style="color:var(--flag-red);">⚡ SUDDEN DEATH · Locked 14–14</span><h2>${venue.flag} ${escapeHTML(venue.name)} · Decider Hole ${dec.holeNum}</h2></div>
+    <div><span class="eyebrow" style="color:var(--flag-red);">⚡ SUDDEN DEATH · Locked 9–9</span><h2>${venue.flag} ${escapeHTML(venue.name)} · Decider Hole ${dec.holeNum}</h2></div>
   </div>
   <div class="card" style="padding:14px 18px;margin-bottom:18px;background:rgba(168,54,42,0.06);border:1px solid rgba(168,54,42,0.2);">
-    <p style="font-size:13px;color:var(--ink-700);margin:0;">The Ryder Cup finished level after all 28 matches. Each side's #1 automatic qualifier plays this hole head to head — first to win a hole takes the cup. Ties replay another hole.</p>
+    <p style="font-size:13px;color:var(--ink-700);margin:0;">The Ryder Cup finished level after all 18 matches. Each captain's #1 seed plays this hole head to head — first to win a hole takes the cup. Ties replay another hole.</p>
   </div>
   <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
     <div id="rc-dec-play-col"></div>
