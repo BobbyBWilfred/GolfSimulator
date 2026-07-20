@@ -796,14 +796,31 @@ function chooseShotType(hs){
    than the old flat-bucket model), this table was re-derived by binary-searching,
    per par-type and per anchor, the raw engine-difficulty value that reproduces the
    same real-world scoring targets as before — so final scoring stays realistic
-   while the components that produce it now also check out individually:
-     x=0 softest tour stop, x=1 average PGA Tour week (par3 3.06/par4 4.03/par5 4.63),
-     x=2 Players/Memorial-tough, x=3 U.S. Open/Oakmont-hard (par3 3.22/par4 4.26/par5 4.85). */
+   while the components that produce it now also check out individually.
+
+   Re-calibrated AGAIN (Dec-2026 pass): the table above was tuned against a single
+   player's mean score per hole, which is the wrong target — a real tournament's
+   WINNING score is the minimum (best) of ~100 correlated 72-hole draws, which sits
+   far below the field mean (order-statistic effect), and gets pulled even lower by
+   the skill spread across the actual 73-90-rated roster (elite guys lead more often
+   than an average player would). That mismatch is exactly why winning scores were
+   blowing out to -30 for regular events, -25 for majors, and -34 for the U.S. Open.
+   This table was instead re-derived by full-field Monte Carlo: simulating the real
+   100-player roster through 4 full rounds with the actual 50%-after-round-2 cut,
+   and binary-searching the difficulty needed so the WINNER's score (not the mean
+   hole score) lands on realistic full-field targets:
+     x=0 softest tour stops -> winner ~-18, x=1 average PGA Tour week -> winner ~-15,
+     x=2 Players/Memorial/PGA-Champ tough -> winner ~-9, x=3 U.S. Open/Oakmont-hard -> winner ~-3.
+   Per-shot stats (putting/GIR/fairway%) and single-player par-type scoring averages
+   were re-verified afterward and are effectively unchanged (par-3 3.12 vs 3.06 real,
+   par-4 4.11 vs 4.03, par-5 4.70 vs 4.63 — engine now plays a shade tougher per hole,
+   which is exactly what compresses the full-field tail without breaking the per-shot
+   stats that were already dialed in). */
 const PAR_DIFFICULTY_TABLE=[
-  {x:0,d3:-2.116,d4:1.857,d5:1.236}, // softest tour stops — birdiefest
-  {x:1,d3:-1.192,d4:1.829,d5:2.291}, // average PGA Tour week
-  {x:2,d3:-0.484,d4:2.137,d5:3.026}, // tough setup (Players/Memorial tier)
-  {x:3,d3:-0.054,d4:2.397,d5:3.569}, // U.S. Open / Oakmont-hard
+  {x:0,d3:-1.753,d4:2.220,d5:1.599}, // softest tour stops — birdiefest, winner ~-18
+  {x:1,d3:-0.751,d4:2.270,d5:2.732}, // average PGA Tour week, winner ~-15
+  {x:2,d3:-0.050,d4:2.571,d5:3.460}, // tough setup (Players/Memorial/PGA Champ tier), winner ~-9
+  {x:3,d3:0.536, d4:2.987,d5:4.159}, // U.S. Open / Oakmont-hard, winner ~-3
 ];
 function parDifficultyFor(baseDifficulty,par){
   const key='d'+(par<=3?3:par>=5?5:4);
