@@ -188,16 +188,16 @@ function realHoles(parsArr,yardsArr){
 }
 const US_OPEN_ROTATION=[
   {course:"Oakmont Country Club",loc:"Oakmont, PA",climate:'parkland',
-    pars:[4,5,4,4,3,4,4,3,4, 4,3,4,4,3,4,5,4,4],
+    pars:[4,4,4,4,3,4,4,3,4, 4,3,4,5,3,4,5,4,4],
     yards:[482,344,462,309,301,453,480,288,477, 462,301,382,570,144,447,677,313,449]},
   {course:"Pinehurst No. 2",loc:"Pinehurst, NC",climate:'parkland',
-    pars:[4,4,3,4,5,4,4,3,4, 4,4,3,4,5,4,4,3,4],
+    pars:[4,4,3,4,5,3,4,3,4, 4,4,3,4,5,4,4,3,4],
     yards:[408,462,190,529,494,224,401,193,381, 448,486,199,373,489,469,451,193,451]},
   {course:"Winged Foot GC (West)",loc:"Mamaroneck, NY",climate:'parkland',
     pars:[4,4,3,4,5,4,4,3,4, 4,4,3,4,4,3,5,4,4],
     yards:[450,453,216,469,515,331,483,238,428, 446,232,190,469,469,190,477,438,442]},
   {course:"Shinnecock Hills GC",loc:"Southampton, NY",climate:'coastal_us',
-    pars:[4,4,4,4,3,5,4,3,4, 4,4,3,5,4,4,4,3,4],
+    pars:[4,4,4,4,3,5,4,3,4, 4,3,4,5,4,4,4,3,4],
     yards:[396,229,478,440,179,616,470,197,428, 412,158,444,616,435,478,470,197,412]},
   {course:"The Country Club",loc:"Brookline, MA",climate:'coastal_us',
     pars:[4,4,4,3,4,5,3,4,4, 4,3,4,4,5,4,4,3,4],
@@ -891,7 +891,10 @@ function resolveFullSwing(hs,attrs,shotType,difficulty){
       res.text=`Approach finds the green, ${hs.puttDistanceFt} ft from the pin.`;
     } else {
       const distPotential=dist*(0.90+skillP*0.09);
-      const distActual=clamp(gaussian(distPotential,dist*0.16),dist*0.35,dist*1.15);
+      // Cap the actual travel distance at 280y — without this, an iron shot from
+      // 400+ remaining would fly the full remaining distance, letting players "skip"
+      // the layup that a genuinely long hole should force.
+      const distActual=clamp(gaussian(distPotential,dist*0.16),dist*0.35,Math.min(dist*1.15,280));
       const leftover=clamp(dist-distActual,dist*0.03,dist*0.9);
       hs.remaining=leftover;
       const qualityRoll=Math.random()*100+(irons-50)*0.4-difficulty*8;
