@@ -1888,18 +1888,34 @@ function startNextSeason(){
 }
 
 /* ===== RYDER CUP ENGINE (USA vs EUROPE — every 2 seasons) =====
-   Format: 18 total matches across 4 sessions, first to 9.5 points wins.
-     Day 1 — Foursomes, 9 holes  (3 matches)
-     Day 2 — Singles,   9 holes  (6 matches)
-     Day 3 — Foursomes, 18 holes (3 matches)
-     Day 4 — Singles,   18 holes (6 matches)
-   If the match finishes 9–9, the captains' top pick from each side plays a
+   Real-world format: 12 players per side, 28 total matches across 5 sessions,
+   first to 14.5 points wins.
+     Day 1 — Foursomes, 18 holes (4 matches)
+     Day 1 — Fourballs, 18 holes (4 matches)
+     Day 2 — Foursomes, 18 holes (4 matches)
+     Day 2 — Fourballs, 18 holes (4 matches)
+     Day 3 — Singles,   18 holes (12 matches)
+   Team selection per side: top 6 players by World Ranking qualify automatically;
+   the other 6 spots are captain's picks, drawn from the top 8 remaining players
+   by this-season points and ranked against each other on season form, major
+   performance, and consistency (see rcCaptainsPickScore).
+   If the match finishes 14–14, the captains' top pick from each side plays a
    sudden-death decider hole (440y showcase hole) until someone wins a hole.
    ================================================================= */
 const RC_WINNER_PURSE=100000000; // $100M
 const RC_RUNNER_PURSE=25000000;  // $25M
-const RC_TOTAL_MATCHES=18;
-const RC_WIN_THRESHOLD=9.5;
+const RC_TOTAL_MATCHES=28;
+const RC_WIN_THRESHOLD=14.5;
+// Rotating pairing patterns for the four team sessions — each is 4 pairs (8 of the
+// 12 players), picked as consecutive index-pairs out of the 12-man roster so that
+// the lineup rotates and everyone gets rest across the two days, same as real captains
+// juggling their 12 players across foursomes/fourballs sessions.
+const RC_PAIR_PATTERNS=[
+  [0,1,2,3,4,5,6,7],     // Day 1 Foursomes
+  [4,5,6,7,8,9,10,11],   // Day 1 Fourballs
+  [8,9,10,11,0,1,2,3],   // Day 2 Foursomes
+  [2,3,4,5,8,9,10,11],   // Day 2 Fourballs
+];
 
 // Returns true if this season should have a Ryder Cup (seasons 1,3,5,7...)
 function isRyderCupSeason(seasonNum){ return seasonNum%2===1; }
@@ -1932,9 +1948,11 @@ function playerTeam(player){
   return null; // e.g. KR, JP, AU, AR — not eligible
 }
 
-// Select 6 players per side:
-//   - Top 4 by world ranking from that side
-//   - + 2 by best PGA Tour finish (points) that season from remaining players
+// Select 12 players per side — the real-world Ryder Cup qualification format:
+//   - Top 6 by world ranking from that side qualify automatically
+//   - + 6 captain's picks, chosen from the top 8 remaining players by this-season
+//     PGA points, ranked against each other on a composite of season form, major
+//     performance, and consistency (not just raw points) — the best 6 of those 8 get in.
 function selectRyderCupTeam(side){
   const eligible=STATE.players.filter(p=>playerTeam(p)===side);
   if(eligible.length===0)return[];
@@ -1945,16 +1963,65 @@ function selectRyderCupTeam(side){
     const wb=wrRows.find(r=>r.playerId===b.id)?.pts||0;
     return wb-wa;
   });
-  const top4=byWR.slice(0,4);
-  const top4Ids=new Set(top4.map(p=>p.id));
-  // Remaining: sort by this season PGA points
-  const remaining=eligible.filter(p=>!top4Ids.has(p.id)).sort((a,b)=>{
+  const top6=byWR.slice(0,6);
+  const top6Ids=new Set(top6.map(p=>p.id));
+  // Remaining pool, ranked by this-season PGA points to find the top 8 contenders
+  const remaining=eligible.filter(p=>!top6Ids.has(p.id)).sort((a,b)=>{
     const pa=(STATE.standings[a.id]||{}).points||0;
     const pb=(STATE.standings[b.id]||{}).points||0;
     return pb-pa;
   });
-  const picks2=remaining.slice(0,2);
-  return [...top4,...picks2].map(p=>p.id);
+  const contenders8=remaining.slice(0,8);
+  // Captain's picks: rank those 8 contenders on the composite pick score, take the top 6
+  const picks6=contenders8.slice().sort((a,b)=>rcCaptainsPickScore(b.id)-rcCaptainsPickScore(a.id)).slice(0,6);
+  return [...top6,...picks6].map(p=>p.id);
+}
+
+// ── Captain's-pick composite score ──
+// Weighs three factors instead of just raw season points, mirroring how real
+// Ryder Cup captains talk about picks: current form, how a player shows up in
+// the biggest events, and how consistent they've been (not just one hot week).
+function rcCaptainsPickScore(pid){
+  const formScore=((STATE.standings[pid]||{}).points||0)/100; // this-season points, scaled down
+  const majorScore=rcPlayerMajorScore(pid);
+  const consistencyScore=rcPlayerConsistencyScore(pid);
+  return formScore*1.0+majorScore*1.5+consistencyScore*1.0;
+}
+
+// Average how a player has performed in this season's majors: rewards good
+// finishes (win/top-3/top-10), lightly penalizes missed cuts.
+function rcPlayerMajorScore(pid){
+  const st=STATE.standings[pid];if(!st||!st.history||!st.history.length)return 0;
+  const majorNames=new Set(TOURNAMENT_SEEDS.filter(t=>t.major).map(t=>t.name));
+  const majors=st.history.filter(h=>h.season===STATE.seasonNumber&&majorNames.has(h.trnName));
+  if(!majors.length)return 0;
+  let total=0;
+  majors.forEach(h=>{
+    if(h.pos==='MC'){total-=6;return;}
+    if(h.pos===1)total+=45;
+    else if(h.pos<=3)total+=28;
+    else if(h.pos<=10)total+=16;
+    else if(h.pos<=25)total+=6;
+    else total+=1;
+  });
+  return total/majors.length;
+}
+
+// How steady a player's results have been this season: rewards a high made-cut
+// rate and a high top-10 rate, penalizes wild swings (high variance) in how far
+// off the field average they finish week to week.
+function rcPlayerConsistencyScore(pid){
+  const st=STATE.standings[pid];if(!st||!st.history||!st.history.length)return 0;
+  const events=st.history.filter(h=>h.season===STATE.seasonNumber);
+  if(!events.length)return 0;
+  const madeCuts=events.filter(h=>h.pos!=='MC');
+  const cutRate=madeCuts.length/events.length;
+  const topTenRate=madeCuts.length?madeCuts.filter(h=>typeof h.pos==='number'&&h.pos<=10).length/madeCuts.length:0;
+  const vals=madeCuts.map(h=>h.fieldRelToPar||0);
+  const mean=vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:0;
+  const variance=vals.length?vals.reduce((a,b)=>a+(b-mean)*(b-mean),0)/vals.length:0;
+  const stdDev=Math.sqrt(variance);
+  return cutRate*30+topTenRate*30-Math.min(stdDev,15)*1.2;
 }
 
 function rcInit(defId){
@@ -1966,6 +2033,9 @@ function rcInit(defId){
   if(usaPlayers.length<2||europePlayers.length<2){
     showToast('Need at least 2 eligible USA and 2 eligible Europe players on the roster. Add players from those countries.',true);return;
   }
+  if(usaPlayers.length<12||europePlayers.length<12){
+    showToast(`Rosters are short of the full 12-a-side field (USA: ${usaPlayers.length}, Europe: ${europePlayers.length}) — add more eligible players for a full Ryder Cup. Playing on with what's available.`);
+  }
   const venue=rcVenueForSeason(STATE.seasonNumber);
   STATE.rydercup={
     defId,
@@ -1974,16 +2044,18 @@ function rcInit(defId){
     phase:'in_progress', // 'in_progress' | 'decider' | 'complete'
     usaPlayers,
     europePlayers,
-    // 4 sessions, 18 matches total, first to 9.5 wins
+    // 5 sessions, 28 matches total, first to 14.5 wins — the real Ryder Cup format:
+    // Day 1 & 2 are 4 Foursomes + 4 Fourballs each (18 holes), Day 3 is all 12 Singles.
     sessions:[
-      {name:'Day 1 — Foursomes',shortName:'Foursomes (9)',type:'foursomes',holes:9,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',9),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 2 — Singles',shortName:'Singles (9)',type:'singles',holes:9,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,9),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 3 — Foursomes',shortName:'Foursomes (18)',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18),done:false,ptsUSA:0,ptsEurope:0},
-      {name:'Day 4 — Singles',shortName:'Singles (18)',type:'singles',holes:18,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,18),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 1 — Foursomes',shortName:'Foursomes (4)',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18,RC_PAIR_PATTERNS[0]),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 1 — Fourballs',shortName:'Fourballs (4)',type:'fourball',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'fourball',18,RC_PAIR_PATTERNS[1]),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 2 — Foursomes',shortName:'Foursomes (4)',type:'foursomes',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'foursomes',18,RC_PAIR_PATTERNS[2]),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 2 — Fourballs',shortName:'Fourballs (4)',type:'fourball',holes:18,matches:rcBuildPairMatches(usaPlayers,europePlayers,'fourball',18,RC_PAIR_PATTERNS[3]),done:false,ptsUSA:0,ptsEurope:0},
+      {name:'Day 3 — Singles',shortName:'Singles (12)',type:'singles',holes:18,matches:rcBuildSinglesMatches(usaPlayers,europePlayers,18),done:false,ptsUSA:0,ptsEurope:0},
     ],
     totalUSA:0,totalEurope:0,
     winner:null, // 'USA' | 'Europe'
-    decider:null, // sudden-death decider state if score ends 9-9
+    decider:null, // sudden-death decider state if score ends 14-14
     selectionInfo:{usa:rcSelectionInfo('USA'),europe:rcSelectionInfo('Europe')},
   };
   const inst=getInstance(defId);
@@ -2001,32 +2073,39 @@ function rcSelectionInfo(side){
     const wb=wrRows.find(r=>r.playerId===b.id)?.pts||0;
     return wb-wa;
   });
-  const top4=byWR.slice(0,4).map(p=>p.id);
-  const top4Ids=new Set(top4);
-  const remaining=eligible.filter(p=>!top4Ids.has(p.id)).sort((a,b)=>{
+  const top6=byWR.slice(0,6).map(p=>p.id);
+  const top6Ids=new Set(top6);
+  const remaining=eligible.filter(p=>!top6Ids.has(p.id)).sort((a,b)=>{
     return ((STATE.standings[b.id]||{}).points||0)-((STATE.standings[a.id]||{}).points||0);
   });
-  const picks2=remaining.slice(0,2).map(p=>p.id);
-  return{top4,picks2};
+  const contenders8=remaining.slice(0,8).map(p=>p.id);
+  const ranked8=remaining.slice(0,8).slice().sort((a,b)=>rcCaptainsPickScore(b.id)-rcCaptainsPickScore(a.id));
+  const picks6=ranked8.slice(0,6).map(p=>p.id);
+  const snubbed=ranked8.slice(6).map(p=>p.id); // just outside the 6 picks, for display
+  return{top6,contenders8,picks6,snubbed};
 }
 
-function rcBuildPairMatches(usaPlayers,europePlayers,type,holes){
-  // 3 matches of pairs
+function rcBuildPairMatches(usaPlayers,europePlayers,type,holes,indices){
+  // 4 matches of pairs, picked from the given rotation pattern (8 indices = 4 pairs)
+  // out of the 12-man roster. Falls back to a straight 0-7 pattern if none given.
+  const idx=indices||[0,1,2,3,4,5,6,7];
   const matches=[];
-  for(let i=0;i<3;i++){
-    const usaPair=[usaPlayers[i*2]||usaPlayers[0],usaPlayers[i*2+1]||usaPlayers[1]];
-    const eurPair=[europePlayers[i*2]||europePlayers[0],europePlayers[i*2+1]||europePlayers[1]];
-    matches.push({type,holes:holes||9,status:'pending',lineupUSA:usaPair,lineupEurope:eurPair,result:null,holesA:0,holesB:0});
+  for(let i=0;i<4;i++){
+    const i1=idx[i*2],i2=idx[i*2+1];
+    const usaPair=[usaPlayers[i1]||usaPlayers[0],usaPlayers[i2]||usaPlayers[1]];
+    const eurPair=[europePlayers[i1]||europePlayers[0],europePlayers[i2]||europePlayers[1]];
+    matches.push({type,holes:holes||18,status:'pending',lineupUSA:usaPair,lineupEurope:eurPair,result:null,holesA:0,holesB:0});
   }
   return matches;
 }
 
 function rcBuildSinglesMatches(usaPlayers,europePlayers,holes){
+  // All 12 players from each side go head to head in singles.
   const matches=[];
-  for(let i=0;i<6;i++){
+  for(let i=0;i<12;i++){
     const usaP=usaPlayers[i]||usaPlayers[usaPlayers.length-1];
     const eurP=europePlayers[i]||europePlayers[europePlayers.length-1];
-    matches.push({type:'singles',holes:holes||9,status:'pending',lineupUSA:[usaP],lineupEurope:[eurP],result:null,holesA:0,holesB:0});
+    matches.push({type:'singles',holes:holes||18,status:'pending',lineupUSA:[usaP],lineupEurope:[eurP],result:null,holesA:0,holesB:0});
   }
   return matches;
 }
@@ -2050,11 +2129,11 @@ function rcAllSessionsDone(){
 }
 
 // Picks the lead player from each side's captain's-pick top-4 (i.e. the #1 WR seed)
-// to play the sudden-death decider when the cup finishes tied 9-9.
+// to play the sudden-death decider when the cup finishes tied 14-14.
 function rcDeciderPlayers(){
   const rc=STATE.rydercup;
-  const usaLead=(rc.selectionInfo?.usa?.top4||rc.usaPlayers)[0]||rc.usaPlayers[0];
-  const eurLead=(rc.selectionInfo?.europe?.top4||rc.europePlayers)[0]||rc.europePlayers[0];
+  const usaLead=(rc.selectionInfo?.usa?.top6||rc.usaPlayers)[0]||rc.usaPlayers[0];
+  const eurLead=(rc.selectionInfo?.europe?.top6||rc.europePlayers)[0]||rc.europePlayers[0];
   return{usa:usaLead,europe:eurLead};
 }
 
@@ -2065,7 +2144,7 @@ function rcCheckComplete(){
     rcFinalizeResult(rc.totalUSA>rc.totalEurope?'USA':'Europe');
     return true;
   }
-  // 9-9 tie — kick off the sudden-death decider between each side's #1 seed
+  // 14-14 tie — kick off the sudden-death decider between each side's #1 seed
   if(!rc.decider){
     const leads=rcDeciderPlayers();
     rc.phase='decider';
@@ -2095,7 +2174,7 @@ function rcResolveDeciderHole(){
 function rcFinalizeResult(winner){
   const rc=STATE.rydercup;
   rc.winner=winner;rc.phase='complete';
-  const winShare=Math.round(RC_WINNER_PURSE/6),runShare=Math.round(RC_RUNNER_PURSE/6);
+  const winShare=Math.round(RC_WINNER_PURSE/12),runShare=Math.round(RC_RUNNER_PURSE/12);
   const winPlayers=winner==='USA'?rc.usaPlayers:rc.europePlayers;
   const runPlayers=winner==='USA'?rc.europePlayers:rc.usaPlayers;
   winPlayers.forEach(pid=>{
@@ -2114,7 +2193,7 @@ function rcFinalizeResult(winner){
   const venueTxt=rc.venue?` at ${rc.venue.name}, ${rc.venue.location}`:'';
   pushNews({type:'rydercup',icon:'🏆',trnId:rc.defId,trnName:'Ryder Cup',
     headline:`🏆 RYDER CUP S${rc.season}: ${winner} wins${deciderUsed?' in sudden death':` ${rc.totalUSA}–${rc.totalEurope}`}!`,
-    body:`${winner==='USA'?'Team USA 🇺🇸':'Team Europe 🇪🇺'} claimed the Ryder Cup${venueTxt} in Season ${rc.season}${deciderUsed?`, after the 18-match format finished locked at 9–9 and a sudden-death decider hole settled it`:` by a score of ${rc.totalUSA} to ${rc.totalEurope}`}. The winning team shares $100M in prize money among 6 players.`
+    body:`${winner==='USA'?'Team USA 🇺🇸':'Team Europe 🇪🇺'} claimed the Ryder Cup${venueTxt} in Season ${rc.season}${deciderUsed?`, after the 28-match format finished locked at 14–14 and a sudden-death decider hole settled it`:` by a score of ${rc.totalUSA} to ${rc.totalEurope}`}. The winning team shares $100M in prize money among 12 players.`
   });
   saveState();
 }
@@ -3067,14 +3146,15 @@ function renderRyderCupTab(){
     <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">
       <div style="flex:1;min-width:220px;">
         <div style="font-family:'Oswald',sans-serif;font-size:20px;color:var(--turf-900);margin-bottom:6px;">🇺🇸 USA vs Europe 🇪🇺</div>
-        <div style="font-size:13px;color:var(--ink-700);line-height:1.6;">The Ryder Cup takes place every <b>odd season</b> (1, 3, 5…), alternating venues between the USA and Europe. Six players per side are auto-selected: the <b>top 4 by World Ranking</b> + <b>2 captain's picks</b> (best PGA season points from remaining eligible players).</div>
+        <div style="font-size:13px;color:var(--ink-700);line-height:1.6;">The Ryder Cup takes place every <b>odd season</b> (1, 3, 5…), alternating venues between the USA and Europe. 12 players per side are selected: the <b>top 6 by World Ranking</b> + <b>6 captain's picks</b>, drawn from the top 8 remaining players by season points and ranked on a mix of form, major performance, and consistency.</div>
         <div style="margin-top:10px;font-size:12px;color:var(--ink-500);line-height:1.6;">
-          <b>Format — 18 matches, first to 9.5 wins:</b><br>
-          Day 1: Foursomes · 9 holes · 3 matches<br>
-          Day 2: Singles · 9 holes · 6 matches<br>
-          Day 3: Foursomes · 18 holes · 3 matches<br>
-          Day 4: Singles · 18 holes · 6 matches<br>
-          If it finishes 9–9, each captain's #1 seed plays a sudden-death decider hole until someone wins a hole.
+          <b>Format — 28 matches, first to 14.5 wins:</b><br>
+          Day 1: Foursomes · 18 holes · 4 matches<br>
+          Day 1: Fourballs · 18 holes · 4 matches<br>
+          Day 2: Foursomes · 18 holes · 4 matches<br>
+          Day 2: Fourballs · 18 holes · 4 matches<br>
+          Day 3: Singles · 18 holes · 12 matches<br>
+          If it finishes 14–14, each captain's #1 seed plays a sudden-death decider hole until someone wins a hole.
         </div>
       </div>
       <div style="text-align:center;background:rgba(217,161,59,0.1);border:1px solid rgba(217,161,59,0.3);border-radius:6px;padding:14px 20px;min-width:180px;">
@@ -3149,7 +3229,7 @@ function renderRyderCupProgress(el,rc){
         <div style="font-family:'Oswald',sans-serif;font-size:16px;color:${col};margin-bottom:10px;">${flag} Team ${side}</div>
         ${pids.map((pid,i)=>{
           const p=getPlayer(pid);if(!p)return'';
-          const isWRPick=(info?.top4||[]).includes(pid);
+          const isWRPick=(info?.top6||[]).includes(pid);
           return`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line);">
             <span style="width:20px;height:20px;border-radius:50%;background:${avatarColor(p.name)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${initialsOf(p.name)}</span>
             <span style="flex:1;font-size:12px;">${flagEmoji(p.country)} ${escapeHTML(p.name)}</span>
@@ -3237,7 +3317,7 @@ function renderRyderCupComplete(el,rc){
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:var(--board-amber);margin-bottom:6px;">Season ${rc.season} Ryder Cup Champion · ${venue.flag} ${escapeHTML(venue.name)}</div>
     <h2 style="font-size:36px;color:${winColor};">${winFlag} ${rc.winner}</h2>
     <div class="num" style="font-size:28px;margin:8px 0;">${rc.totalUSA} – ${rc.totalEurope}${decided?` <span style="font-size:14px;color:var(--flag-red);">(Sudden Death)</span>`:''}</div>
-    ${decided?`<div style="font-size:12px;color:var(--ink-700);margin-bottom:8px;">Locked 9–9 after 18 matches — settled on the decider hole.</div>`:''}
+    ${decided?`<div style="font-size:12px;color:var(--ink-700);margin-bottom:8px;">Locked 14–14 after 28 matches — settled on the decider hole.</div>`:''}
     <div style="font-size:14px;color:var(--ink-500);margin-bottom:28px;">Winner's share: $100M split across 6 players</div>
     <div style="display:flex;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:28px;">
       ${['USA','Europe'].map(side=>{
@@ -3254,7 +3334,7 @@ function renderRyderCupComplete(el,rc){
   appendRyderCupHistory(el,hist);
 }
 
-/* ===== SUDDEN-DEATH DECIDER (9-9 tie) =====
+/* ===== SUDDEN-DEATH DECIDER (14-14 tie) =====
    Each captain's #1 WR seed plays a decider hole, head to head, hole after hole,
    until one of them is strictly fewer strokes — no halves carry the cup. */
 function renderRyderCupDecider(el,rc){
@@ -3265,7 +3345,7 @@ function renderRyderCupDecider(el,rc){
   if(!dec.hsEurope)dec.hsEurope=newHoleState({hole:dec.holeNum,par:4,yards:445});
 
   el.innerHTML=`<div class="section-head">
-    <div><span class="eyebrow" style="color:var(--flag-red);">⚡ SUDDEN DEATH · Locked 9–9</span><h2>${venue.flag} ${escapeHTML(venue.name)} · Decider Hole ${dec.holeNum}</h2></div>
+    <div><span class="eyebrow" style="color:var(--flag-red);">⚡ SUDDEN DEATH · Locked 14–14</span><h2>${venue.flag} ${escapeHTML(venue.name)} · Decider Hole ${dec.holeNum}</h2></div>
   </div>
   <div class="card" style="padding:14px 18px;margin-bottom:18px;background:rgba(168,54,42,0.06);border:1px solid rgba(168,54,42,0.2);">
     <p style="font-size:13px;color:var(--ink-700);margin:0;">The Ryder Cup finished level after all 18 matches. Each captain's #1 seed plays this hole head to head — first to win a hole takes the cup. Ties replay another hole.</p>
@@ -3339,12 +3419,43 @@ function renderRyderCupDecider(el,rc){
 // The person chooses which side to hit next — the app never silently switches control.
 let RC_MATCH_PLAY={active:false,sIdx:null,mIdx:null,holeNum:1,totalHoles:9,scoreUSA:0,scoreEurope:0,hsUSA:null,hsEurope:null,holeLog:[],done:false,winner:null,turn:'USA'};
 
+// Persists the live match-play state onto the match object itself (match.mp) so that
+// stepping away to play a different match — then coming back — resumes exactly where
+// you left off instead of restarting the match at hole 1. Called after every shot,
+// hole, or navigation event that touches RC_MATCH_PLAY.
+function rcSaveMatchPlayState(){
+  const rcm=RC_MATCH_PLAY;
+  if(!rcm.active||rcm.sIdx==null||rcm.mIdx==null)return;
+  const rc=STATE.rydercup;if(!rc)return;
+  const match=rc.sessions[rcm.sIdx]?.matches?.[rcm.mIdx];if(!match)return;
+  match.mp={holeNum:rcm.holeNum,totalHoles:rcm.totalHoles,scoreUSA:rcm.scoreUSA,scoreEurope:rcm.scoreEurope,
+    hsUSA:rcm.hsUSA,hsEurope:rcm.hsEurope,holeLog:rcm.holeLog,done:rcm.done,winner:rcm.winner,turn:rcm.turn};
+  saveState();
+}
+
+// Fourball is two-ball best-ball: each partner plays their own ball the whole way,
+// and the side's score for the hole is whichever partner did better. So (unlike
+// foursomes, which shares one averaged ball) fourball needs two independent
+// hole-states per side — hence the array here instead of a single object.
+function rcNewSideState(holeDef,isFourball){
+  return isFourball?[newHoleState(holeDef),newHoleState(holeDef)]:newHoleState(holeDef);
+}
+function rcSideHoledOut(hs,isFourball){ return isFourball?hs.every(h=>h.holedOut):hs.holedOut; }
+function rcSideStrokes(hs,isFourball){ return isFourball?Math.min(hs[0].strokes,hs[1].strokes):hs.strokes; }
+
 function openRCMatchPlayModalNew(viewEl,sIdx,mIdx){
   const rc=STATE.rydercup;const match=rc.sessions[sIdx].matches[mIdx];
   const totalHoles=match.holes||9;
-  const holeDef={hole:1,par:4,yards:430};
-  RC_MATCH_PLAY={active:true,sIdx,mIdx,holeNum:1,totalHoles,scoreUSA:0,scoreEurope:0,
-    hsUSA:newHoleState(holeDef),hsEurope:newHoleState(holeDef),holeLog:[],done:false,winner:null,turn:'USA'};
+  const isFourball=match.type==='fourball';
+  if(match.mp){
+    // Resume in-progress match exactly where it was left off.
+    RC_MATCH_PLAY={active:true,sIdx,mIdx,...match.mp};
+  } else {
+    const holeDef={hole:1,par:4,yards:430};
+    RC_MATCH_PLAY={active:true,sIdx,mIdx,holeNum:1,totalHoles,scoreUSA:0,scoreEurope:0,
+      hsUSA:rcNewSideState(holeDef,isFourball),hsEurope:rcNewSideState(holeDef,isFourball),holeLog:[],done:false,winner:null,turn:'USA'};
+    rcSaveMatchPlayState();
+  }
   renderRCMatchPlayPanel(viewEl);
 }
 
@@ -3393,26 +3504,80 @@ function rcSideCardHTML(side,hs,player,isTurn,nameOverride){
   </div>`;
 }
 
+// Compact per-player card used inside a fourball team panel (two of these stack
+// per side, each with its own independent "Hit" button — best-ball, so both
+// players play out their own ball).
+function rcFourballPlayerCardHTML(side,idx,hs,player){
+  const isUSA=side==='USA';
+  const col=isUSA?'#002868':'#00467f';
+  const bg=isUSA?'rgba(0,40,104,0.05)':'rgba(0,70,127,0.05)';
+  const name=player?escapeHTML(player.name):side;
+  return`<div style="background:${bg};border:1px solid ${isUSA?'rgba(0,40,104,0.18)':'rgba(0,70,127,0.18)'};border-radius:6px;padding:10px 12px;margin-bottom:8px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+      <span style="width:22px;height:22px;border-radius:50%;background:${avatarColor(player?.name||side)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${player?initialsOf(player.name):'?'}</span>
+      <div style="flex:1;min-width:0;font-family:'Oswald',sans-serif;font-size:13px;color:var(--ink-900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+      ${hs.holedOut?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:rgba(63,122,77,0.15);color:var(--turf-700);padding:2px 7px;border-radius:10px;white-space:nowrap;">✓ IN</span>`:''}
+    </div>
+    <div style="display:flex;gap:6px;">
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:5px 3px;">
+        <div style="font-size:8px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Lie</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:12px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:5px 3px;">
+        <div style="font-size:8px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">${hs.lie==='green'?'To Hole':'To Pin'}</div>
+        <div class="num" style="font-size:12px;">${hs.lie==='green'?hs.puttDistanceFt+'ft':Math.round(hs.remaining)+'y'}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:5px 3px;">
+        <div style="font-size:8px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Strokes</div>
+        <div class="num" style="font-size:12px;">${hs.strokes}</div>
+      </div>
+    </div>
+    ${hs.log.length?`<div style="font-size:10px;color:var(--ink-700);margin-top:6px;padding:5px 7px;background:#fff;border-radius:3px;border-left:3px solid ${col};">${escapeHTML(hs.log[hs.log.length-1])}</div>`:''}
+    ${!hs.holedOut?`<button class="btn btn-sm" data-rc-hit-fb="${side}:${idx}" style="width:100%;margin-top:7px;background:${col};border-color:${col};">${hs.strokes===0?'Tee Off':'Hit Next Shot'}</button>`:''}
+  </div>`;
+}
+
+function rcFourballTeamHTML(side,hsArr,players){
+  const isUSA=side==='USA';
+  const col=isUSA?'#002868':'#00467f';
+  const flag=isUSA?'🇺🇸':'🇪🇺';
+  const bothIn=hsArr.every(h=>h.holedOut);
+  const best=bothIn?Math.min(hsArr[0].strokes,hsArr[1].strokes):null;
+  return`<div style="flex:1;min-width:220px;">
+    <div style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:${col};margin-bottom:6px;">${flag} Team ${side}${best!=null?` · Best Ball ${best}`:''}</div>
+    ${rcFourballPlayerCardHTML(side,0,hsArr[0],players[0])}
+    ${rcFourballPlayerCardHTML(side,1,hsArr[1],players[1])}
+  </div>`;
+}
+
 function renderRCMatchPlayPanel(viewEl){
   const rc=STATE.rydercup;const rcm=RC_MATCH_PLAY;
   const session=rc.sessions[rcm.sIdx];const match=session.matches[rcm.mIdx];
   const isFoursomes=match.type==='foursomes';
+  const isFourball=match.type==='fourball';
+  const isTeamMatch=isFoursomes||isFourball;
   const holesLeft=rcm.totalHoles-rcm.holeNum+1;
   const diff=rcm.scoreUSA-rcm.scoreEurope;
   const usaP=getPlayer(match.lineupUSA[0]);const eurP=getPlayer(match.lineupEurope[0]);
+  const usaPlayers=match.lineupUSA.map(getPlayer);const eurPlayers=match.lineupEurope.map(getPlayer);
   // Foursomes is a pair playing alternate shot — average the team's effective attributes
   // instead of just using the first-listed player, so both partners actually matter.
+  // Fourball is best-ball — each partner needs their own individual effective attrs,
+  // since they each play their own ball independently (see usaEffArr/eurEffArr below).
   const usaEff=isFoursomes
     ?avgAttrs(match.lineupUSA.map(pid=>effectiveAttrs(getPlayer(pid))).filter(Boolean))
     :(usaP?effectiveAttrs(usaP):{});
   const eurEff=isFoursomes
     ?avgAttrs(match.lineupEurope.map(pid=>effectiveAttrs(getPlayer(pid))).filter(Boolean))
     :(eurP?effectiveAttrs(eurP):{});
-  const usaLabel=isFoursomes?match.lineupUSA.map(pid=>getPlayer(pid)?.name||'?').join(' / '):(usaP?.name||'USA');
-  const eurLabel=isFoursomes?match.lineupEurope.map(pid=>getPlayer(pid)?.name||'?').join(' / '):(eurP?.name||'Europe');
+  const usaEffArr=usaPlayers.map(p=>p?effectiveAttrs(p):{});
+  const eurEffArr=eurPlayers.map(p=>p?effectiveAttrs(p):{});
+  const usaLabel=isTeamMatch?match.lineupUSA.map(pid=>getPlayer(pid)?.name||'?').join(' / '):(usaP?.name||'USA');
+  const eurLabel=isTeamMatch?match.lineupEurope.map(pid=>getPlayer(pid)?.name||'?').join(' / '):(eurP?.name||'Europe');
+  const matchTypeLabel=isFoursomes?'Foursomes':isFourball?'Fourball':'Singles';
 
   viewEl.innerHTML=`<div class="section-head">
-    <div><span class="eyebrow" style="color:var(--flag-red);">${session.name} · ${match.holes||9} Holes · Match Play</span><h2>🇺🇸 ${escapeHTML(usaLabel)} vs 🇪🇺 ${escapeHTML(eurLabel)}</h2></div>
+    <div><span class="eyebrow" style="color:var(--flag-red);">${session.name} · ${matchTypeLabel} · ${match.holes||9} Holes · Match Play</span><h2>🇺🇸 ${escapeHTML(usaLabel)} vs 🇪🇺 ${escapeHTML(eurLabel)}</h2></div>
     <button class="btn ghost btn-sm" id="rc-mp-back">← Back to Matches</button>
   </div>
   <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
@@ -3421,6 +3586,7 @@ function renderRCMatchPlayPanel(viewEl){
   </div>`;
 
   document.getElementById('rc-mp-back').addEventListener('click',()=>{
+    rcSaveMatchPlayState(); // keep hole-by-hole progress so this match resumes later, not resets
     RC_MATCH_PLAY.active=false;renderRyderCupView(viewEl);
   });
 
@@ -3436,7 +3602,7 @@ function renderRCMatchPlayPanel(viewEl){
       <button class="btn amber" id="rc-mp-confirm" style="margin-top:12px;width:100%;padding:10px;">Confirm Result &amp; Back to Matches</button>
     </div>`;
     document.getElementById('rc-mp-confirm').addEventListener('click',()=>{
-      match.result=rcm.winner;match.status='complete';
+      match.result=rcm.winner;match.status='complete';match.mp=null; // match is recorded, no resume state needed
       RC_MATCH_PLAY.active=false;saveState();renderRyderCupView(viewEl);
     });
   } else {
@@ -3458,41 +3624,75 @@ function renderRCMatchPlayPanel(viewEl){
     </div>`;
   }
 
-  /* ---- Play column: the two side-by-side player cards + whichever hit-shot controls apply ---- */
+  /* ---- Play column: side cards + whichever hit-shot controls apply ---- */
   const playCol=document.getElementById('rc-mp-play-col');
   if(!rcm.done){
-    const usaTurn=rcm.turn==='USA'&&!rcm.hsUSA.holedOut;
-    const eurTurn=rcm.turn==='Europe'&&!rcm.hsEurope.holedOut;
-    playCol.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
-      ${rcSideCardHTML('USA',rcm.hsUSA,usaP,usaTurn,isFoursomes?usaLabel:null)}
-      ${rcSideCardHTML('Europe',rcm.hsEurope,eurP,eurTurn,isFoursomes?eurLabel:null)}
-    </div>
-    <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
-      <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-500);">Quick Actions</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${!rcm.hsUSA.holedOut||!rcm.hsEurope.holedOut?`<button class="btn ghost btn-sm" id="rc-mp-sim-hole" style="border-color:var(--board-amber);color:#7a5a0a;">Simulate Rest of Hole (Both Sides)</button>`:''}
-        ${rcm.hsUSA.holedOut&&rcm.hsEurope.holedOut?`<button class="btn amber" id="rc-mp-next-hole" style="flex:1;">Confirm Hole &amp; Continue →</button>`:''}
+    const usaHoledOut=rcSideHoledOut(rcm.hsUSA,isFourball);
+    const eurHoledOut=rcSideHoledOut(rcm.hsEurope,isFourball);
+    if(isFourball){
+      playCol.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        ${rcFourballTeamHTML('USA',rcm.hsUSA,usaPlayers)}
+        ${rcFourballTeamHTML('Europe',rcm.hsEurope,eurPlayers)}
       </div>
-      <p style="font-size:11px;color:var(--ink-500);margin:0;">Tap "Tee Off" / "Hit Next Shot" on either card — play USA and Europe in any order you like, hole by hole.</p>
-    </div>`;
-
-    playCol.querySelectorAll('[data-rc-hit]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const side=btn.dataset.rcHit;
-        const hs=side==='USA'?rcm.hsUSA:rcm.hsEurope;
-        const eff=side==='USA'?usaEff:eurEff;
-        playShot(hs,eff);
-        rcm.turn=side; // keep focus ring on the side just played
-        renderRCMatchPlayPanel(viewEl);
+      <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-500);">Quick Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${!usaHoledOut||!eurHoledOut?`<button class="btn ghost btn-sm" id="rc-mp-sim-hole" style="border-color:var(--board-amber);color:#7a5a0a;">Simulate Rest of Hole (All 4 Players)</button>`:''}
+          ${usaHoledOut&&eurHoledOut?`<button class="btn amber" id="rc-mp-next-hole" style="flex:1;">Confirm Hole &amp; Continue →</button>`:''}
+        </div>
+        <p style="font-size:11px;color:var(--ink-500);margin:0;">Fourball is best-ball — each of the 4 players plays their own ball, and each side's score is whichever partner did better. Tap "Hit" on any player in any order.</p>
+      </div>`;
+      playCol.querySelectorAll('[data-rc-hit-fb]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const[side,idxStr]=btn.dataset.rcHitFb.split(':');const idx=+idxStr;
+          const hsArr=side==='USA'?rcm.hsUSA:rcm.hsEurope;
+          const effArr=side==='USA'?usaEffArr:eurEffArr;
+          playShot(hsArr[idx],effArr[idx]);
+          rcm.turn=side;
+          rcSaveMatchPlayState();
+          renderRCMatchPlayPanel(viewEl);
+        });
       });
-    });
+    } else {
+      const usaTurn=rcm.turn==='USA'&&!usaHoledOut;
+      const eurTurn=rcm.turn==='Europe'&&!eurHoledOut;
+      playCol.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        ${rcSideCardHTML('USA',rcm.hsUSA,usaP,usaTurn,isFoursomes?usaLabel:null)}
+        ${rcSideCardHTML('Europe',rcm.hsEurope,eurP,eurTurn,isFoursomes?eurLabel:null)}
+      </div>
+      <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+        <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-500);">Quick Actions</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${!usaHoledOut||!eurHoledOut?`<button class="btn ghost btn-sm" id="rc-mp-sim-hole" style="border-color:var(--board-amber);color:#7a5a0a;">Simulate Rest of Hole (Both Sides)</button>`:''}
+          ${usaHoledOut&&eurHoledOut?`<button class="btn amber" id="rc-mp-next-hole" style="flex:1;">Confirm Hole &amp; Continue →</button>`:''}
+        </div>
+        <p style="font-size:11px;color:var(--ink-500);margin:0;">Tap "Tee Off" / "Hit Next Shot" on either card — play USA and Europe in any order you like, hole by hole.</p>
+      </div>`;
+      playCol.querySelectorAll('[data-rc-hit]').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          const side=btn.dataset.rcHit;
+          const hs=side==='USA'?rcm.hsUSA:rcm.hsEurope;
+          const eff=side==='USA'?usaEff:eurEff;
+          playShot(hs,eff);
+          rcm.turn=side; // keep focus ring on the side just played
+          rcSaveMatchPlayState();
+          renderRCMatchPlayPanel(viewEl);
+        });
+      });
+    }
     document.getElementById('rc-mp-sim-hole')?.addEventListener('click',()=>{
-      while(!rcm.hsUSA.holedOut)playShot(rcm.hsUSA,usaEff);
-      while(!rcm.hsEurope.holedOut)playShot(rcm.hsEurope,eurEff);
+      if(isFourball){
+        rcm.hsUSA.forEach((hs,i)=>{while(!hs.holedOut)playShot(hs,usaEffArr[i]);});
+        rcm.hsEurope.forEach((hs,i)=>{while(!hs.holedOut)playShot(hs,eurEffArr[i]);});
+      } else {
+        while(!rcm.hsUSA.holedOut)playShot(rcm.hsUSA,usaEff);
+        while(!rcm.hsEurope.holedOut)playShot(rcm.hsEurope,eurEff);
+      }
+      rcSaveMatchPlayState();
       renderRCMatchPlayPanel(viewEl);
     });
     document.getElementById('rc-mp-next-hole')?.addEventListener('click',()=>{
-      const usaStrokes=rcm.hsUSA.strokes,eurStrokes=rcm.hsEurope.strokes;
+      const usaStrokes=rcSideStrokes(rcm.hsUSA,isFourball),eurStrokes=rcSideStrokes(rcm.hsEurope,isFourball);
       let holeWinner='H';
       if(usaStrokes<eurStrokes){rcm.scoreUSA++;holeWinner='USA';}
       else if(eurStrokes<usaStrokes){rcm.scoreEurope++;holeWinner='Europe';}
@@ -3504,8 +3704,9 @@ function renderRCMatchPlayPanel(viewEl){
       } else {
         rcm.holeNum++;
         const hd={hole:rcm.holeNum,par:4,yards:430};
-        rcm.hsUSA=newHoleState(hd);rcm.hsEurope=newHoleState(hd);rcm.turn='USA';
+        rcm.hsUSA=rcNewSideState(hd,isFourball);rcm.hsEurope=rcNewSideState(hd,isFourball);rcm.turn='USA';
       }
+      rcSaveMatchPlayState();
       renderRCMatchPlayPanel(viewEl);
     });
   }
