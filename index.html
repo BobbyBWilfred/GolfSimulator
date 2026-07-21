@@ -816,11 +816,26 @@ function chooseShotType(hs){
    par-4 4.11 vs 4.03, par-5 4.70 vs 4.63 — engine now plays a shade tougher per hole,
    which is exactly what compresses the full-field tail without breaking the per-shot
    stats that were already dialed in). */
+/* Re-calibrated (Jan-2027 pass): the table above was still producing winner scores of
+   -25 to -30 across the board — including for the U.S. Open — despite the comment
+   claiming -18/-15/-9/-3 targets. Root cause: those numbers were derived from a
+   single player's mean score per hole, not from an actual full-field simulation.
+   The WINNER of a real tournament is the MINIMUM of ~16-20 correlated 4-round
+   scores (order-statistic effect), which sits well below any individual player's
+   own average — so a table tuned to "make one player's average realistic" will
+   always under-shoot on toughness once you take the best-of-the-field. This table
+   was instead re-derived by full-field Monte Carlo: simulating the real roster
+   (16-player field for regular/x0-x1 anchors, 20-player major field for x2-x3
+   anchors) through 4 full rounds thousands of times and binary-searching the
+   difficulty needed so the WINNER's score — not the mean — lands on the real
+   targets below. Per-shot stats and single-player par-type scoring averages were
+   re-verified afterward and remain realistic (par-3 ~3.1-3.4, par-4 ~4.0-4.2,
+   par-5 ~4.7-5.1 depending on setup toughness). */
 const PAR_DIFFICULTY_TABLE=[
-  {x:0,d3:-1.753,d4:2.220,d5:1.599}, // softest tour stops — birdiefest, winner ~-18
-  {x:1,d3:-0.751,d4:2.270,d5:2.732}, // average PGA Tour week, winner ~-15
-  {x:2,d3:-0.050,d4:2.571,d5:3.460}, // tough setup (Players/Memorial/PGA Champ tier), winner ~-9
-  {x:3,d3:0.536, d4:2.987,d5:4.159}, // U.S. Open / Oakmont-hard, winner ~-3
+  {x:0,d3:-1.039,d4:2.934,d5:2.313}, // softest tour stops — birdiefest, winner ~-18
+  {x:1,d3:-0.227,d4:2.794,d5:3.256}, // average PGA Tour week, winner ~-15
+  {x:2,d3:0.622, d4:3.243,d5:4.132}, // tough setup (Players/Memorial/PGA Champ tier), winner ~-9
+  {x:3,d3:1.227, d4:3.678,d5:4.850}, // U.S. Open / Oakmont-hard, winner ~-3
 ];
 function parDifficultyFor(baseDifficulty,par){
   const key='d'+(par<=3?3:par>=5?5:4);
