@@ -249,44 +249,39 @@ function rotationVenue(rotationArr,seasonNumber){
    thick rough, fast/firm greens) — winning around even par should now be a top-5-caliber
    score instead of routinely seeing -20/-30. */
 const TOURNAMENT_SEEDS=[
-  // ── Full season calendar, chronological, all stroke play ──
-  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0,date:"Jan 11",difficulty:1.15},
-  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:9.1,seed:2,yard:-10,date:"Jan 18",difficulty:1.75},
-  {name:"The American Express",course:"PGA West (Stadium Course)",loc:"La Quinta, CA",major:false,purse:9.2,seed:3,yard:-8,date:"Jan 25",difficulty:1.0},
-  {name:"Farmers Insurance Open",course:"Torrey Pines GC (South)",loc:"San Diego, CA",major:false,purse:9.6,seed:4,yard:6,date:"Feb 1",difficulty:1.75},
-  {name:"WM Phoenix Open",course:"TPC Scottsdale (Stadium)",loc:"Scottsdale, AZ",major:false,purse:9.6,seed:5,yard:-4,date:"Feb 8",difficulty:0.75},
-  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:6,yard:-5,date:"Feb 15",difficulty:0.75},
-  {name:"Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:7,yard:9,date:"Feb 22",difficulty:1.25},
-  {name:"Cognizant Classic",course:"PGA National (Champion)",loc:"Palm Beach Gardens, FL",major:false,purse:9.6,seed:8,yard:-2,date:"Mar 1",difficulty:0.95},
-  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:9,yard:10,date:"Mar 8",difficulty:1},
-  {name:"The Players Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:10,yard:5,date:"Mar 15",difficulty:1.5},
-  {name:"Valspar Championship",course:"Innisbrook (Copperhead)",loc:"Palm Harbor, FL",major:false,purse:9.1,seed:11,yard:3,date:"Mar 22",difficulty:0.5},
-  {name:"Texas Children's Houston Open",course:"Memorial Park GC",loc:"Houston, TX",major:false,purse:9.9,seed:12,yard:7,date:"Mar 29",difficulty:1.5},
-  {name:"Valero Texas Open",course:"TPC San Antonio (Oaks)",loc:"San Antonio, TX",major:false,purse:9.8,seed:13,yard:5,date:"Apr 5",difficulty:0.75},
-  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:22.5,seed:14,yard:15,date:"Apr 12",difficulty:2.5},
-  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:15,yard:-20,date:"Apr 19",difficulty:1.5},
-  {name:"Zurich Classic of New Orleans",course:"TPC Louisiana",loc:"Avondale, LA",major:false,purse:9.5,seed:16,yard:-3,date:"Apr 26",difficulty:1.5},
-  {name:"Cadillac Championship",course:"Trump National Doral (Blue Monster)",loc:"Doral, FL",major:false,purse:20,seed:17,yard:8,date:"May 3",difficulty:0.5},
-  {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:18,yard:2,date:"May 10",difficulty:0},
-  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:20.5,seed:19,yard:20,date:"May 17",difficulty:2.05},
-  {name:"CJ Cup Byron Nelson",course:"TPC Craig Ranch",loc:"McKinney, TX",major:false,purse:10.3,seed:20,yard:4,date:"May 24",difficulty:1.5},
-  {name:"Charles Schwab Challenge",course:"Colonial Country Club",loc:"Fort Worth, TX",major:false,purse:9.9,seed:21,yard:-15,date:"May 31",difficulty:1},
-  {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:22,yard:8,date:"Jun 7",difficulty:1.5},
-  {name:"RBC Canadian Open",course:"TPC Toronto at Osprey Valley",loc:"Caledon, ON",major:false,purse:9.8,seed:23,yard:-6,date:"Jun 14",difficulty:0.5},
-  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:22.5,seed:24,yard:18,date:"Jun 21",difficulty:3},
-  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:25,yard:-12,date:"Jun 29",difficulty:1.5},
-  {name:"John Deere Classic",course:"TPC Deere Run",loc:"Silvis, IL",major:false,purse:8.8,seed:26,yard:-18,date:"Jul 5",difficulty:0.5},
-  {name:"Genesis Scottish Open",course:"The Renaissance Club",loc:"North Berwick, Scotland",major:false,purse:9.0,seed:27,yard:-9,date:"Jul 12",difficulty:1},
-  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:17,seed:28,yard:0,date:"Jul 19",difficulty:2.25},
-  {name:"3M Open",course:"TPC Twin Cities",loc:"Blaine, MN",major:false,purse:8.8,seed:29,yard:-5,date:"Jul 26",difficulty:1.2},
-  {name:"Rocket Classic",course:"Detroit GC",loc:"Detroit, MI",major:false,purse:10.0,seed:30,yard:-1,date:"Aug 2",difficulty:1.5},
-  {name:"Wyndham Championship",course:"Sedgefield Country Club",loc:"Greensboro, NC",major:false,purse:8.5,seed:31,yard:-10,date:"Aug 9",difficulty:1.2},
-  // ── FedExCup Playoffs (no cut, progressive field: 60 → 40 → 20 of your roster) ──
-  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:32,yard:6,playoff:true,playoffFieldSize:60,date:"Aug 16",difficulty:0.5},
-  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:33,yard:22,playoff:true,playoffFieldSize:40,date:"Aug 23",difficulty:1},
-  {name:"Tour Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:34,yard:4,playoff:true,playoffFieldSize:20,tourChampionship:true,date:"Aug 30",difficulty:0.5},
+  // ── 2027 "Championship Series" calendar (24 events, Feb–Sep) — PGA TOUR has
+  //   confirmed the tiered-purse, elevated-field structure but not the full
+  //   schedule; the six new-market stops below fill the confirmed gaps with
+  //   the cities/venues the TOUR has floated publicly. Every event pays a $20M
+  //   purse except THE PLAYERS and the four majors ($25M) and the TOUR
+  //   Championship ($40M). ──
+  {name:"The Sentry",course:"Kapalua Plantation Course",loc:"Kapalua, HI",major:false,purse:20,seed:1,yard:0,date:"Jan 18",difficulty:1.15},
+  {name:"Sony Open in Hawaii",course:"Waialae Country Club",loc:"Honolulu, HI",major:false,purse:20,seed:2,yard:-10,date:"Jan 25",difficulty:1.75},
+  {name:"AT&T Pebble Beach Pro-Am",course:"Pebble Beach Golf Links",loc:"Pebble Beach, CA",major:false,purse:20,seed:3,yard:-5,date:"Feb 8",difficulty:0.75},
+  {name:"Genesis Invitational",course:"The Riviera Country Club",loc:"Pacific Palisades, CA",major:false,purse:20,seed:4,yard:9,date:"Feb 15",difficulty:1.25},
+  {name:"Arnold Palmer Invitational",course:"Bay Hill Club",loc:"Orlando, FL",major:false,purse:20,seed:5,yard:10,date:"Feb 29",difficulty:1},
+  {name:"THE PLAYERS Championship",course:"TPC Sawgrass (Stadium)",loc:"Ponte Vedra Beach, FL",major:false,purse:25,seed:6,yard:5,date:"Mar 14",difficulty:1.5},
+  {name:"Texas Championship",course:"Vaquero Club",loc:"Westlake, TX",major:false,purse:20,seed:7,yard:4,date:"Mar 28",difficulty:1.45},
+  {name:"Masters Tournament",course:"Augusta National Golf Club",loc:"Augusta, GA",major:true,purse:25,seed:8,yard:15,date:"Apr 11",difficulty:2.5},
+  {name:"RBC Heritage",course:"Harbour Town Golf Links",loc:"Hilton Head, SC",major:false,purse:20,seed:9,yard:-20,date:"Apr 18",difficulty:1.5},
+  {name:"Truist Championship",course:"Philadelphia Cricket Club",loc:"Wayne, PA",major:false,purse:20,seed:10,yard:2,date:"May 2",difficulty:0},
+  {name:"PGA Championship",course:"Quail Hollow Club",loc:"Charlotte, NC",major:true,purse:25,seed:11,yard:20,date:"May 16",difficulty:2.05},
+  {name:"Memorial Tournament",course:"Muirfield Village GC",loc:"Dublin, OH",major:false,purse:20,seed:12,yard:8,date:"May 30",difficulty:1.5},
+  {name:"U.S. Open",course:"Oakmont Country Club",loc:"Oakmont, PA",major:true,purse:25,seed:13,yard:18,date:"Jun 13",difficulty:3},
+  {name:"Travelers Championship",course:"TPC River Highlands",loc:"Cromwell, CT",major:false,purse:20,seed:14,yard:-12,date:"Jun 20",difficulty:1.5},
+  {name:"Seattle Championship",course:"Sahalee Country Club",loc:"Sammamish, WA",major:false,purse:20,seed:15,yard:-6,date:"Jul 4",difficulty:1.65},
+  {name:"Genesis Scottish Open",course:"The Renaissance Club",loc:"North Berwick, Scotland",major:false,purse:20,seed:16,yard:-9,date:"Jul 11",difficulty:1},
+  {name:"The Open Championship",course:"St Andrews (Old Course)",loc:"St Andrews, Scotland",major:true,purse:25,seed:17,yard:0,date:"Jul 18",difficulty:2.25},
+  {name:"Boston Championship",course:"TPC Boston",loc:"Norton, MA",major:false,purse:20,seed:18,yard:-3,date:"Jul 25",difficulty:1.55},
+  {name:"San Francisco Championship",course:"TPC Harding Park",loc:"San Francisco, CA",major:false,purse:20,seed:19,yard:1,date:"Aug 1",difficulty:1.4},
+  {name:"Denver Championship",course:"Cherry Hills Country Club",loc:"Cherry Hills Village, CO",major:false,purse:20,seed:20,yard:12,date:"Aug 8",difficulty:1.7},
+  {name:"Washington D.C. Championship",course:"Congressional Country Club (Blue)",loc:"Bethesda, MD",major:false,purse:20,seed:21,yard:7,date:"Aug 15",difficulty:1.5},
+  // ── FedExCup Playoffs — pyramid cut, 64 → 32 → 16 of your roster ──
+  {name:"FedEx St. Jude Championship",course:"TPC Southwind",loc:"Memphis, TN",major:false,purse:20,seed:22,yard:6,playoff:true,playoffFieldSize:64,date:"Aug 22",difficulty:0.5},
+  {name:"BMW Championship",course:"Castle Pines GC",loc:"Castle Rock, CO",major:false,purse:20,seed:23,yard:22,playoff:true,playoffFieldSize:32,date:"Aug 29",difficulty:1},
+  {name:"TOUR Championship",course:"East Lake Golf Club",loc:"Atlanta, GA",major:false,purse:40,seed:24,yard:4,playoff:true,playoffFieldSize:16,tourChampionship:true,date:"Sep 5",difficulty:0.5},
   // ── Ryder Cup — odd seasons only, immediately after the Tour Championship ──
-  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:35,yard:0,rydercup:true,date:"Sep",difficulty:0},
+  {name:"Ryder Cup",course:"Various",loc:"International",major:false,purse:0,seed:25,yard:0,rydercup:true,date:"Sep",difficulty:0},
 ];
 
 function buildTournamentDefs(seasonNumber){
@@ -2283,11 +2278,14 @@ function seasonCompleteBannerHTML(){
 
 function scheduleRowHTML(inst,i){
   const def=getDef(inst.defId);const isMajor=def.major;const isPlayoff=def.playoff;const isTeam=def.teamEvent;
-  const lb=inst.status!=='scheduled'?(inst.status==='complete'?inst.leaderboardCache:computeLeaderboard(inst.defId)):null;
+  const isBracket=def.tourChampionship;
+  const lb=(inst.status!=='scheduled'&&!isBracket)?(inst.status==='complete'?inst.leaderboardCache:computeLeaderboard(inst.defId)):null;
   const leaderRow=lb&&lb.find(r=>r.holesPlayed>0);
   const leaderTxt=leaderRow?`${getPlayer(leaderRow.playerId)?.name||'—'} ${leaderRow.toPar===0?'E':leaderRow.toPar>0?'+'+leaderRow.toPar:leaderRow.toPar}`:null;
+  // The TOUR Championship's "leader" line instead shows bracket progress / the crowned champion.
+  const bracketTxt=isBracket&&inst.bracket?(inst.status==='complete'?`FedExCup Champion: ${getPlayer(inst.bracket.champion)?.name||'—'}`:`Now playing: ${inst.bracket.rounds[inst.bracket.roundIdx].name}`):null;
   const isRyderCupRow=def.rydercup;
-  const btnLabel=inst.status==='scheduled'?(isRyderCupRow?'Launch Ryder Cup':isPlayoff?'Set Field (Top 10) & Tee Off':'Set Field & Tee Off'):inst.status==='in_progress'?'Resume':'View Result';
+  const btnLabel=inst.status==='scheduled'?(isRyderCupRow?'Launch Ryder Cup':isBracket?`Launch Bracket (Top ${def.playoffFieldSize||16})`:isPlayoff?`Set Field (Top ${def.playoffFieldSize||10}) & Tee Off`:'Set Field & Tee Off'):inst.status==='in_progress'?(isBracket?'Resume Bracket':'Resume'):(isBracket?'View Bracket':'View Result');
   return`<div class="card" style="display:flex;align-items:center;gap:14px;padding:13px 16px;border-left:4px solid ${isMajor?'var(--board-amber)':isTeam?'#9c27b0':isPlayoff?'var(--flag-red)':'transparent'};">
     <div class="num" style="width:26px;color:var(--ink-500);font-size:15px;flex-shrink:0;">${i+1}</div>
     <div style="flex:1;min-width:0;">
@@ -2295,13 +2293,13 @@ function scheduleRowHTML(inst,i){
         <h3 style="font-size:16px;">${def.name}</h3>
         ${isMajor?`<span style="background:var(--turf-900);color:var(--board-amber);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">MAJOR</span>`:''}
 
-        ${isPlayoff?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">⛳ PLAYOFF · TOP 10</span>`:''}
+        ${isBracket?`<span style="background:rgba(217,161,59,0.18);color:#7a5a0a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 MATCH PLAY · TOP ${def.playoffFieldSize||16}</span>`:isPlayoff?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">⛳ PLAYOFF · TOP ${def.playoffFieldSize||10}</span>`:''}
         ${def.bigPurse?`<span style="background:rgba(217,161,59,0.18);color:#7a5a0a;font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">💰 ELEVATED PURSE</span>`:''}
         ${def.rydercup?`<span style="background:rgba(168,54,42,0.15);color:var(--flag-red);font-size:10px;padding:2px 7px;border-radius:2px;font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:0.08em;">🏆 RYDER CUP</span>`:''}
         ${statusBadge(inst.status)}
       </div>
-      <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.date?`${def.date} · `:''}${def.course} · ${def.location} · ${def.rounds} rounds${def.playoff?' · No Cut':''} · $${def.purseM}M purse</div>
-      ${leaderTxt?`<div style="font-size:12px;color:var(--turf-700);margin-top:3px;font-weight:600;">${inst.status==='complete'?'Won by':'Leader:'} ${leaderTxt}</div>`:''}
+      <div style="font-size:12px;color:var(--ink-500);margin-top:2px;">${def.date?`${def.date} · `:''}${def.course} · ${def.location} · ${isBracket?'Single-elim match play (18 holes · 36-hole Final)':`${def.rounds} rounds${def.playoff?' · No Cut':''}`} · $${def.purseM}M purse</div>
+      ${bracketTxt?`<div style="font-size:12px;color:var(--turf-700);margin-top:3px;font-weight:600;">${bracketTxt}</div>`:leaderTxt?`<div style="font-size:12px;color:var(--turf-700);margin-top:3px;font-weight:600;">${inst.status==='complete'?'Won by':'Leader:'} ${leaderTxt}</div>`:''}
     </div>
     ${isRyderCupRow&&inst.status==='scheduled'&&!isRyderCupSeason(STATE.seasonNumber)?
     `<span style="font-size:10px;font-family:'Barlow Condensed',sans-serif;color:var(--ink-500);padding:4px 10px;border:1px solid var(--line);border-radius:3px;">Every 2 Seasons</span>`:
@@ -2493,6 +2491,7 @@ function openFieldModal(defId){
     if(!isRyderCupSeason(STATE.seasonNumber)){showToast('The Ryder Cup only takes place in odd-numbered seasons.',true);return;}
     rcInit(defId);return;
   }
+  if(def.tourChampionship){tcInit(defId);return;}
   if(def.playoff){
     const n=def.playoffFieldSize||10;
     const top=topPlayersByPoints(n);
@@ -2580,6 +2579,8 @@ function renderTournament(){
 
   // Ryder Cup takes over the tournament view entirely
   if(def&&def.rydercup){renderRyderCupView(el);return;}
+  // TOUR Championship is a single-elimination match-play bracket, not stroke play
+  if(def&&def.tourChampionship){renderTCBracketView(el,defId);return;}
 
   PLAY_UI.defId=defId;
   let roundIdx=inst.rounds.findIndex((_,i)=>!isRoundComplete(inst,i));
@@ -3852,6 +3853,422 @@ function renderNews(){
     btn.addEventListener('click',()=>{renderNews._filter=btn.dataset.filter;renderNews();});
   });
   el.querySelectorAll('[data-view-profile]').forEach(b=>b.addEventListener('click',()=>openProfileModal(b.dataset.viewProfile)));
+}
+
+/* ===== TOUR CHAMPIONSHIP — SINGLE-ELIMINATION MATCH PLAY BRACKET =====
+   Proposed 2027 postseason format: FedEx St. Jude (top 64, cut to 32) → BMW
+   (top 32, cut to 16) → TOUR Championship (top 16, single-elim match play,
+   18 holes per match except a 36-hole Final) that crowns the FedExCup
+   Champion outright. This reuses the same shot-by-shot simulation engine
+   (newHoleState/playShot/effectiveAttrs) as everywhere else in the app —
+   it's the Ryder Cup's match-play approach (holes-up scoring, sudden death
+   when level) applied to an individual single-elimination bracket instead
+   of a USA-vs-Europe team session. */
+
+// Real 16-seed bracket, exactly as the field is announced: 1v16, 8v9, 5v12,
+// 4v13, 6v11, 3v14, 7v10, 2v15. For smaller test rosters (fewer than 16
+// eligible players) we fall back to the standard recursive reflection-seed
+// pairing (1v(n), 2v(n-1)... arranged so top seeds meet as late as possible).
+function tcSeedPairs(size){
+  if(size===16)return[[1,16],[8,9],[5,12],[4,13],[6,11],[3,14],[7,10],[2,15]];
+  let order=[1,2];
+  while(order.length<size){
+    const sz=order.length*2;
+    order=order.flatMap(s=>[s,sz+1-s]);
+  }
+  const pairs=[];
+  for(let i=0;i<order.length;i+=2)pairs.push([order[i],order[i+1]]);
+  return pairs;
+}
+function tcRoundNames(size){
+  const all=['Round of 16','Quarterfinals','Semifinals','Championship'];
+  return all.slice(all.length-Math.log2(size));
+}
+function tcRoundDays(size){
+  const all=['Thursday','Friday','Saturday morning','Sunday'];
+  return all.slice(all.length-Math.log2(size));
+}
+
+function tcInit(defId){
+  const def=getDef(defId);const inst=getInstance(defId);
+  const avail=STATE.players.length;
+  if(avail<2){showToast('Need at least 2 players on the roster to run the TOUR Championship bracket.',true);return;}
+  let size=Math.min(16,def.playoffFieldSize||16);
+  while(size>avail)size/=2;
+  size=Math.max(2,size);
+  const top=topPlayersByPoints(size);
+  const ids=top.map(p=>p.id);
+  const pairs=tcSeedPairs(size);
+  const roundNames=tcRoundNames(size);
+  const roundDays=tcRoundDays(size);
+  const rounds=roundNames.map((name,ri)=>{
+    const isFinal=ri===roundNames.length-1;
+    const numMatches=size/Math.pow(2,ri+1);
+    const matches=new Array(numMatches).fill(null).map(()=>({idA:null,idB:null,seedA:null,seedB:null,holes:isFinal?36:18,status:'pending',result:null,winnerId:null,mp:null}));
+    return{name,day:roundDays[ri],matches};
+  });
+  rounds[0].matches.forEach((m,i)=>{
+    const[sA,sB]=pairs[i];
+    m.seedA=sA;m.seedB=sB;m.idA=ids[sA-1]||null;m.idB=ids[sB-1]||null;
+  });
+  inst.bracket={size,seeds:ids,rounds,roundIdx:0,champion:null,runnerUp:null};
+  inst.status='in_progress';
+  STATE.activeTournamentId=defId;
+  saveState();
+  showToast(`TOUR Championship bracket set — Top ${size} in FedExCup points.`);
+  switchView('tournament');
+}
+
+function tcAdvanceRoundIfDone(defId){
+  const inst=getInstance(defId);const br=inst&&inst.bracket;if(!br)return;
+  const round=br.rounds[br.roundIdx];
+  if(!round.matches.every(m=>m.status==='complete'))return;
+  if(br.roundIdx===br.rounds.length-1){tcFinishIfComplete(defId);return;}
+  const next=br.rounds[br.roundIdx+1];
+  for(let i=0;i<next.matches.length;i++){
+    next.matches[i].idA=round.matches[i*2].winnerId;
+    next.matches[i].idB=round.matches[i*2+1].winnerId;
+  }
+  br.roundIdx++;
+  saveState();
+}
+
+function tcFinishIfComplete(defId){
+  const inst=getInstance(defId);const def=getDef(defId);const br=inst&&inst.bracket;
+  if(!br||inst.status==='complete')return false;
+  const finalRound=br.rounds[br.rounds.length-1];const finalMatch=finalRound.matches[0];
+  if(finalMatch.status!=='complete')return false;
+  const championId=finalMatch.winnerId;
+  const runnerUpId=championId===finalMatch.idA?finalMatch.idB:finalMatch.idA;
+  br.champion=championId;br.runnerUp=runnerUpId;
+  inst.status='complete';inst.completedAt=Date.now();inst.winnerId=championId;
+
+  const rows=[{playerId:championId,position:1},{playerId:runnerUpId,position:2}];
+  br.rounds.forEach((round,ri)=>{
+    if(ri===br.rounds.length-1)return;
+    const pos=br.size/Math.pow(2,ri+1)+1;
+    round.matches.forEach(m=>{
+      const loserId=m.winnerId===m.idA?m.idB:m.idA;
+      if(loserId)rows.push({playerId:loserId,position:pos});
+    });
+  });
+
+  rows.forEach(r=>{
+    if(!STATE.standings[r.playerId])STATE.standings[r.playerId]={points:0,earnings:0,wins:0,events:0,history:[]};
+    const st=STATE.standings[r.playerId];
+    const prize=prizeForPosition(r.position,def.purseM,br.size);
+    st.earnings+=prize;st.events++;
+    if(r.position===1)st.wins++;
+    st.history.push({trnId:def.id,trnName:def.name,pos:r.position,pts:0,prize,toPar:null,strokes:null,season:STATE.seasonNumber,fieldRelToPar:0,fedex:true,matchPlay:true});
+  });
+
+  if(!STATE.fedexCupChampions)STATE.fedexCupChampions=[];
+  STATE.fedexCupChampions.push({season:STATE.seasonNumber,playerId:championId});
+
+  // Reuse the normal world-ranking pipeline with a synthetic leaderboard shaped
+  // the way it expects (playerId/position/cut/holesPlayed).
+  const lb=rows.map(r=>({playerId:r.playerId,position:r.position,cut:false,holesPlayed:1,toPar:0,strokes:0}));
+  updateWorldRanking(defId,lb);
+
+  const champ=getPlayer(championId),ru=getPlayer(runnerUpId);
+  pushNews({type:'playoff',icon:'🏆',trnId:def.id,trnName:def.name,
+    headline:`${champ?champ.name:'A golfer'} wins the TOUR Championship — FedExCup Champion`,
+    body:`${champ?champ.name:'The champion'} beat ${ru?ru.name:'the runner-up'} in the 36-hole Championship match at East Lake to win the single-elimination bracket and be crowned FedExCup Champion.`});
+
+  if(STATE.activeTournamentId===defId)STATE.activeTournamentId=null;
+  saveState();
+  return true;
+}
+
+// Fast "simulate this whole match" path — runs full holes back-to-back via the
+// same simulateFullHole() used everywhere else, including sudden-death extra
+// holes if the match is level after regulation (match play can't end in a tie).
+function tcCompleteMatch(defId,roundIdx,matchIdx,winnerSide,scoreLine){
+  const inst=getInstance(defId);const br=inst.bracket;const match=br.rounds[roundIdx].matches[matchIdx];
+  match.status='complete';match.result=winnerSide;match.winnerId=winnerSide==='A'?match.idA:match.idB;match.mp=null;
+  match.scoreLine=scoreLine||null;
+  saveState();
+  tcAdvanceRoundIfDone(defId);
+}
+function tcSimulateMatch(defId,roundIdx,matchIdx){
+  const inst=getInstance(defId);const br=inst.bracket;const match=br.rounds[roundIdx].matches[matchIdx];
+  if(!match.idA||!match.idB)return;
+  const pA=getPlayer(match.idA),pB=getPlayer(match.idB);
+  const effA=pA?effectiveAttrs(pA):{};const effB=pB?effectiveAttrs(pB):{};
+  const totalHoles=match.holes||18;let scoreA=0,scoreB=0;
+  for(let h=1;h<=totalHoles;h++){
+    const holeDef={hole:h,par:4,yards:430};
+    const hsA=simulateFullHole(holeDef,effA);const hsB=simulateFullHole(holeDef,effB);
+    if(hsA.strokes<hsB.strokes)scoreA++;else if(hsB.strokes<hsA.strokes)scoreB++;
+    const holesLeft=totalHoles-h;
+    if(Math.abs(scoreA-scoreB)>holesLeft){
+      const margin=Math.abs(scoreA-scoreB);
+      tcCompleteMatch(defId,roundIdx,matchIdx,scoreA>scoreB?'A':'B',`${margin}&${holesLeft}`);
+      return;
+    }
+  }
+  if(scoreA!==scoreB){
+    const margin=Math.abs(scoreA-scoreB);
+    tcCompleteMatch(defId,roundIdx,matchIdx,scoreA>scoreB?'A':'B',`${margin} up`);
+    return;
+  }
+  let h=totalHoles;
+  while(true){
+    h++;
+    const holeDef={hole:h,par:4,yards:430};
+    const hsA=simulateFullHole(holeDef,effA);const hsB=simulateFullHole(holeDef,effB);
+    if(hsA.strokes<hsB.strokes){tcCompleteMatch(defId,roundIdx,matchIdx,'A','1 up (playoff)');return;}
+    if(hsB.strokes<hsA.strokes){tcCompleteMatch(defId,roundIdx,matchIdx,'B','1 up (playoff)');return;}
+  }
+}
+
+/* ---- Interactive hole-by-hole match UI — mirrors the Ryder Cup singles
+   match-play screen (two-side cards, hit-shot buttons, hole log) but for two
+   individual players in a bracket match instead of USA vs Europe. ---- */
+let TC_MATCH_PLAY={active:false,roundIdx:null,matchIdx:null,holeNum:1,totalHoles:18,scoreA:0,scoreB:0,hsA:null,hsB:null,holeLog:[],done:false,winner:null,turn:'A',sudden:false};
+
+function tcSaveMatchState(defId){
+  const tcm=TC_MATCH_PLAY;if(!tcm.active||tcm.roundIdx==null||tcm.matchIdx==null)return;
+  const inst=getInstance(defId);const br=inst&&inst.bracket;if(!br)return;
+  const match=br.rounds[tcm.roundIdx]?.matches?.[tcm.matchIdx];if(!match)return;
+  match.mp={holeNum:tcm.holeNum,totalHoles:tcm.totalHoles,scoreA:tcm.scoreA,scoreB:tcm.scoreB,
+    hsA:tcm.hsA,hsB:tcm.hsB,holeLog:tcm.holeLog,done:tcm.done,winner:tcm.winner,turn:tcm.turn,sudden:tcm.sudden};
+  saveState();
+}
+
+function openTCMatchModal(viewEl,defId,roundIdx,matchIdx){
+  const inst=getInstance(defId);const br=inst.bracket;const match=br.rounds[roundIdx].matches[matchIdx];
+  if(!match.idA||!match.idB){showToast('Both players in this match are not decided yet.',true);return;}
+  const totalHoles=match.holes||18;
+  if(match.mp){
+    TC_MATCH_PLAY={active:true,roundIdx,matchIdx,...match.mp};
+  }else{
+    const holeDef={hole:1,par:4,yards:430};
+    TC_MATCH_PLAY={active:true,roundIdx,matchIdx,holeNum:1,totalHoles,scoreA:0,scoreB:0,
+      hsA:newHoleState(holeDef),hsB:newHoleState(holeDef),holeLog:[],done:false,winner:null,turn:'A',sudden:false};
+    tcSaveMatchState(defId);
+  }
+  renderTCMatchPanel(viewEl,defId);
+}
+
+function tcMatchStatusText(diff,holesLeft,labelA,labelB,sudden){
+  if(diff===0)return sudden?'All Square — Sudden Death':'All Square';
+  const leader=diff>0?labelA:labelB;const mag=Math.abs(diff);
+  if(sudden)return`${leader} wins`;
+  if(mag>holesLeft)return`${leader} wins`;
+  if(mag===holesLeft)return`${leader} ${mag} UP · Dormie`;
+  return`${leader} ${mag} UP`;
+}
+
+function tcSideCardHTML(side,hs,player,isTurn,col){
+  const bg=side==='A'?'rgba(63,122,77,0.06)':'rgba(168,54,42,0.05)';
+  const bd=side==='A'?'rgba(63,122,77,0.2)':'rgba(168,54,42,0.2)';
+  const name=player?escapeHTML(player.name):side;
+  const ringStyle=isTurn?`box-shadow:0 0 0 2px ${col};`:'';
+  return`<div style="flex:1;min-width:0;background:${bg};border:1px solid ${bd};${ringStyle}border-radius:6px;padding:12px 14px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+      <span style="width:26px;height:26px;border-radius:50%;background:${avatarColor(player?.name||side)};color:#fff;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;font-family:'Barlow Condensed',sans-serif;flex-shrink:0;">${player?initialsOf(player.name):side}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'Oswald',sans-serif;font-size:14px;color:var(--ink-900);line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+      </div>
+      ${isTurn&&!hs.holedOut?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:${col};color:#fff;padding:2px 7px;border-radius:10px;letter-spacing:0.04em;white-space:nowrap;">ON THE TEE</span>`:''}
+      ${hs.holedOut?`<span style="font-size:9px;font-family:'Barlow Condensed',sans-serif;font-weight:700;background:rgba(63,122,77,0.15);color:var(--turf-700);padding:2px 7px;border-radius:10px;letter-spacing:0.04em;white-space:nowrap;">✓ IN</span>`:''}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Lie</div>
+        <div style="font-family:'Oswald',sans-serif;font-size:13px;color:${lieColor(hs.lie)};">${lieLabel(hs.lie)}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">${hs.lie==='green'?'To Hole':'To Pin'}</div>
+        <div class="num" style="font-size:14px;">${hs.lie==='green'?hs.puttDistanceFt+'ft':Math.round(hs.remaining)+'y'}</div>
+      </div>
+      <div style="flex:1;text-align:center;background:#fff;border-radius:4px;padding:6px 4px;">
+        <div style="font-size:9px;color:var(--ink-500);text-transform:uppercase;font-family:'Barlow Condensed',sans-serif;">Strokes</div>
+        <div class="num" style="font-size:14px;">${hs.strokes}</div>
+      </div>
+    </div>
+    ${hs.log.length?`<div style="font-size:11px;color:var(--ink-700);margin-top:8px;padding:6px 8px;background:#fff;border-radius:3px;border-left:3px solid ${col};">${escapeHTML(hs.log[hs.log.length-1])}</div>`:''}
+    ${!hs.holedOut?`<button class="btn btn-sm" data-tc-hit="${side}" style="width:100%;margin-top:9px;background:${col};border-color:${col};">${hs.strokes===0?'Tee Off':'Hit Next Shot'}</button>`:''}
+  </div>`;
+}
+
+function renderTCMatchPanel(viewEl,defId){
+  const inst=getInstance(defId);const br=inst.bracket;const tcm=TC_MATCH_PLAY;
+  const round=br.rounds[tcm.roundIdx];const match=round.matches[tcm.matchIdx];
+  const pA=getPlayer(match.idA),pB=getPlayer(match.idB);
+  const labelA=pA?.name||'Player A',labelB=pB?.name||'Player B';
+  const colA='var(--turf-700)',colB='var(--flag-red)';
+  const holesLeft=tcm.totalHoles-tcm.holeNum+1;
+  const diff=tcm.scoreA-tcm.scoreB;
+
+  viewEl.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow" style="color:var(--flag-red);">${round.name}${match.holes===36?' · 36 Holes':' · 18 Holes'} · Match Play</span><h2>${escapeHTML(labelA)} vs ${escapeHTML(labelB)}</h2></div>
+    <button class="btn ghost btn-sm" id="tc-mp-back">← Back to Bracket</button>
+  </div>
+  <div class="play-grid-2col" style="display:grid;grid-template-columns:1.15fr 1fr;gap:20px;align-items:flex-start;">
+    <div id="tc-mp-play-col"></div>
+    <div id="tc-mp-status-col"></div>
+  </div>`;
+
+  document.getElementById('tc-mp-back').addEventListener('click',()=>{
+    tcSaveMatchState(defId);TC_MATCH_PLAY.active=false;renderTCBracketView(viewEl,defId);
+  });
+
+  const statusCol=document.getElementById('tc-mp-status-col');
+  if(tcm.done){
+    const winnerName=tcm.winner==='A'?labelA:labelB;
+    const col=tcm.winner==='A'?colA:colB;
+    statusCol.innerHTML=`<div class="card" style="padding:20px;text-align:center;border-top:4px solid ${col};">
+      <div style="font-size:28px;margin-bottom:8px;">🏆</div>
+      <div style="font-family:'Oswald',sans-serif;font-size:20px;color:${col};">${escapeHTML(winnerName)} Wins</div>
+      <div class="num" style="font-size:18px;margin:8px 0;">${Math.max(tcm.scoreA,tcm.scoreB)-Math.min(tcm.scoreA,tcm.scoreB)} up${tcm.sudden?' in sudden death':''}</div>
+      <button class="btn amber" id="tc-mp-confirm" style="margin-top:12px;width:100%;padding:10px;">Confirm Result &amp; Back to Bracket</button>
+    </div>`;
+    document.getElementById('tc-mp-confirm').addEventListener('click',()=>{
+      const margin=Math.max(tcm.scoreA,tcm.scoreB)-Math.min(tcm.scoreA,tcm.scoreB);
+      const holesLeft=tcm.totalHoles-tcm.holeNum;
+      const line=tcm.sudden?'1 up (playoff)':(holesLeft>0?`${margin}&${holesLeft}`:`${margin} up`);
+      tcCompleteMatch(defId,tcm.roundIdx,tcm.matchIdx,tcm.winner,line);
+      TC_MATCH_PLAY.active=false;renderTCBracketView(viewEl,defId);
+    });
+  }else{
+    statusCol.innerHTML=`<div class="card" style="padding:0;overflow:hidden;">
+      <div style="background:var(--board-black);color:var(--paper-50);padding:12px 16px;text-align:center;">
+        <div style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:0.08em;text-transform:uppercase;color:var(--sand-300);">Hole ${tcm.holeNum}${tcm.sudden?' (Sudden Death)':` of ${tcm.totalHoles}`} · Par 4</div>
+        <div class="num" style="font-size:26px;margin:4px 0;"><span style="color:#8fce9c;">${tcm.scoreA}</span> – <span style="color:#e0938c;">${tcm.scoreB}</span></div>
+        <div style="font-size:12px;color:var(--sand-200);font-family:'Barlow Condensed',sans-serif;font-weight:700;">${tcMatchStatusText(diff,holesLeft,labelA,labelB,tcm.sudden)}${tcm.sudden?'':` · ${holesLeft} to play`}</div>
+      </div>
+      <div style="padding:12px;">${tcm.holeLog.length===0?`<div style="font-size:12px;color:var(--ink-500);text-align:center;padding:8px;">No holes completed yet</div>`:`
+        <div style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto;" class="scrollbar-thin">
+          ${tcm.holeLog.slice().reverse().map(h=>`<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 8px;background:var(--sand-200);border-radius:3px;">
+            <span class="num" style="width:20px;color:var(--ink-500);">H${h.hole}</span>
+            <span style="flex:1;color:${h.winner==='A'?colA:h.winner==='B'?colB:'var(--ink-700)'};font-weight:600;">${h.winner==='H'?'Halved':(h.winner==='A'?labelA:labelB)+' wins hole'}</span>
+            <span style="font-size:11px;color:var(--ink-500);">${h.strokesA} – ${h.strokesB}</span>
+          </div>`).join('')}
+        </div>`}
+      </div>
+    </div>`;
+  }
+
+  const playCol=document.getElementById('tc-mp-play-col');
+  if(!tcm.done){
+    const aHoledOut=tcm.hsA.holedOut,bHoledOut=tcm.hsB.holedOut;
+    const aTurn=tcm.turn==='A'&&!aHoledOut,bTurn=tcm.turn==='B'&&!bHoledOut;
+    playCol.innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+      ${tcSideCardHTML('A',tcm.hsA,pA,aTurn,colA)}
+      ${tcSideCardHTML('B',tcm.hsB,pB,bTurn,colB)}
+    </div>
+    <div class="card" style="padding:14px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--ink-500);">Quick Actions</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${!aHoledOut||!bHoledOut?`<button class="btn ghost btn-sm" id="tc-mp-sim-hole" style="border-color:var(--board-amber);color:#7a5a0a;">Simulate Rest of Hole (Both Players)</button>`:''}
+        ${aHoledOut&&bHoledOut?`<button class="btn amber" id="tc-mp-next-hole" style="flex:1;">Confirm Hole &amp; Continue →</button>`:''}
+      </div>
+      <p style="font-size:11px;color:var(--ink-500);margin:0;">Tap "Tee Off" / "Hit Next Shot" on either card — play either side in any order, hole by hole.</p>
+    </div>`;
+    playCol.querySelectorAll('[data-tc-hit]').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const side=btn.dataset.tcHit;const hs=side==='A'?tcm.hsA:tcm.hsB;
+        const p=side==='A'?pA:pB;const eff=p?effectiveAttrs(p):{};
+        playShot(hs,eff);tcm.turn=side;
+        tcSaveMatchState(defId);renderTCMatchPanel(viewEl,defId);
+      });
+    });
+    document.getElementById('tc-mp-sim-hole')?.addEventListener('click',()=>{
+      const effA=pA?effectiveAttrs(pA):{};const effB=pB?effectiveAttrs(pB):{};
+      while(!tcm.hsA.holedOut)playShot(tcm.hsA,effA);
+      while(!tcm.hsB.holedOut)playShot(tcm.hsB,effB);
+      tcSaveMatchState(defId);renderTCMatchPanel(viewEl,defId);
+    });
+    document.getElementById('tc-mp-next-hole')?.addEventListener('click',()=>{
+      const strokesA=tcm.hsA.strokes,strokesB=tcm.hsB.strokes;
+      let holeWinner='H';
+      if(strokesA<strokesB){tcm.scoreA++;holeWinner='A';}else if(strokesB<strokesA){tcm.scoreB++;holeWinner='B';}
+      tcm.holeLog.push({hole:tcm.holeNum,strokesA,strokesB,winner:holeWinner});
+      const newHolesLeft=tcm.totalHoles-tcm.holeNum;const holeDiff=tcm.scoreA-tcm.scoreB;
+      if(!tcm.sudden&&Math.abs(holeDiff)>newHolesLeft){
+        tcm.done=true;tcm.winner=holeDiff>0?'A':'B';
+      }else if(!tcm.sudden&&tcm.holeNum>=tcm.totalHoles){
+        if(holeDiff!==0){tcm.done=true;tcm.winner=holeDiff>0?'A':'B';}
+        else{tcm.sudden=true;tcm.holeNum++;tcm.totalHoles=tcm.holeNum;const hd={hole:tcm.holeNum,par:4,yards:430};tcm.hsA=newHoleState(hd);tcm.hsB=newHoleState(hd);tcm.turn='A';}
+      }else if(tcm.sudden){
+        if(holeWinner==='H'){tcm.holeNum++;tcm.totalHoles=tcm.holeNum;const hd={hole:tcm.holeNum,par:4,yards:430};tcm.hsA=newHoleState(hd);tcm.hsB=newHoleState(hd);tcm.turn='A';}
+        else{tcm.done=true;tcm.winner=holeWinner;}
+      }else{
+        tcm.holeNum++;const hd={hole:tcm.holeNum,par:4,yards:430};tcm.hsA=newHoleState(hd);tcm.hsB=newHoleState(hd);tcm.turn='A';
+      }
+      tcSaveMatchState(defId);renderTCMatchPanel(viewEl,defId);
+    });
+  }
+}
+
+/* ---- Bracket overview screen — lists every round, with Play/Resume/
+   Simulate actions per match, and the champion banner once the Final
+   is decided. ---- */
+function tcMatchRowHTML(defId,roundIdx,matchIdx,match){
+  const pA=getPlayer(match.idA),pB=getPlayer(match.idB);
+  const nameA=pA?escapeHTML(pA.name):(match.seedA?`Seed #${match.seedA}`:'TBD');
+  const nameB=pB?escapeHTML(pB.name):(match.seedB?`Seed #${match.seedB}`:'TBD');
+  const seedTagA=match.seedA?`<span style="font-size:10px;color:var(--ink-500);">#${match.seedA}</span>`:'';
+  const seedTagB=match.seedB?`<span style="font-size:10px;color:var(--ink-500);">#${match.seedB}</span>`:'';
+  const ready=match.idA&&match.idB;
+  const isDone=match.status==='complete';
+  const winnerIsA=isDone&&match.winnerId===match.idA;
+  return`<div class="card" style="display:flex;align-items:center;gap:12px;padding:10px 14px;">
+    <div style="flex:1;min-width:0;font-size:13px;">
+      <div style="display:flex;align-items:center;gap:6px;font-weight:${isDone&&winnerIsA?'700':'400'};color:${isDone&&winnerIsA?'var(--turf-700)':'var(--ink-900)'};">${seedTagA} ${nameA}${isDone&&winnerIsA?` ✓${match.scoreLine?` <span style="font-size:11px;font-weight:400;color:var(--ink-500);">(${match.scoreLine})</span>`:''}`:''}</div>
+      <div style="display:flex;align-items:center;gap:6px;font-weight:${isDone&&!winnerIsA?'700':'400'};color:${isDone&&!winnerIsA?'var(--turf-700)':'var(--ink-900)'};">${seedTagB} ${nameB}${isDone&&!winnerIsA?` ✓${match.scoreLine?` <span style="font-size:11px;font-weight:400;color:var(--ink-500);">(${match.scoreLine})</span>`:''}`:''}</div>
+    </div>
+    <div style="flex-shrink:0;display:flex;gap:6px;">
+      ${isDone?`<span style="font-size:11px;color:var(--ink-500);">Final</span>`:ready?`
+        <button class="btn ghost btn-sm" data-tc-sim="${roundIdx}:${matchIdx}">Simulate</button>
+        <button class="btn amber btn-sm" data-tc-play="${roundIdx}:${matchIdx}">${match.mp?'Resume':'Play'}</button>
+      `:`<span style="font-size:11px;color:var(--ink-500);">Waiting…</span>`}
+    </div>
+  </div>`;
+}
+
+function renderTCBracketView(viewEl,defId){
+  const inst=getInstance(defId);const def=getDef(defId);
+  if(!inst.bracket){viewEl.innerHTML=`<div class="empty-state"><h3>Bracket not set yet</h3><p>Go to Schedule and launch the TOUR Championship bracket.</p></div>`;return;}
+  const br=inst.bracket;
+  const isComplete=inst.status==='complete';
+  viewEl.innerHTML=`<div class="section-head">
+    <div><span class="eyebrow">${def.course} · ${def.location} · Single-Elimination Match Play</span><h2>${def.name}</h2></div>
+    <div class="eyebrow">${isComplete?'Final':br.rounds[br.roundIdx].name}</div>
+  </div>
+  ${isComplete?`<div class="card" style="padding:20px 22px;margin-bottom:18px;border-left:4px solid var(--board-amber);background:linear-gradient(90deg,rgba(217,161,59,0.1),transparent);">
+    <div class="eyebrow" style="color:var(--board-amber);">FedExCup Champion</div>
+    <h3 style="font-size:22px;margin-top:2px;">🏆 ${escapeHTML(getPlayer(br.champion)?.name||'—')}</h3>
+    <p style="font-size:13px;color:var(--ink-500);margin-top:4px;">Beat ${escapeHTML(getPlayer(br.runnerUp)?.name||'—')} in the 36-hole Championship match at East Lake.</p>
+  </div>`:''}
+  <div style="display:flex;flex-direction:column;gap:22px;">
+    ${br.rounds.map((round,ri)=>`<div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+        <h3 style="font-size:15px;color:var(--turf-900);text-transform:uppercase;letter-spacing:0.03em;">${round.name}</h3>
+        <span style="font-size:11px;color:var(--ink-500);">${round.day}${round.matches[0]?.holes===36?' · 36 holes':' · 18 holes'}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${round.matches.map((m,mi)=>tcMatchRowHTML(defId,ri,mi,m)).join('')}
+      </div>
+    </div>`).join('')}
+  </div>`;
+
+  viewEl.querySelectorAll('[data-tc-sim]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const[ri,mi]=btn.dataset.tcSim.split(':').map(Number);
+      tcSimulateMatch(defId,ri,mi);
+      renderTCBracketView(viewEl,defId);
+      if(getInstance(defId).status==='complete')showToast('The TOUR Championship is complete!');
+    });
+  });
+  viewEl.querySelectorAll('[data-tc-play]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const[ri,mi]=btn.dataset.tcPlay.split(':').map(Number);
+      openTCMatchModal(viewEl,defId,ri,mi);
+    });
+  });
 }
 
 /* ===== NAV ===== */
